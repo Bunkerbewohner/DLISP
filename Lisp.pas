@@ -318,7 +318,10 @@ var
   symbol : TSymbol;
   Value : TData;
 begin
-  if args.Size < 3 then raise Exception.Create('def: not enough arguments');
+  if args.Size < 3 then 
+    raise Exception.Create('def: not enough arguments');
+  if not (args[1] is TSymbol) then 
+    raise Exception.Create('def: ' + args[1].Tostring + ' is not a valid symbol');
 
   symbol := args[1] as TSymbol;
   Value := args[2] as TData;
@@ -333,6 +336,7 @@ var
   name : string;
   val : TData;
 begin
+  args[1]._AddRef;
   val := Eval(args[1]);
   Result := TString.Create(val.ClassName);
   val.Release;
