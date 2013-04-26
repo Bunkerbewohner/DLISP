@@ -165,13 +165,13 @@ begin
     symbol := code as TSymbol;
     if FGlobal.FSymbols.ContainsKey(symbol.Value) then
     begin
-      Result := FGlobal[symbol.Value];
-      code.Free;
+      Result := FGlobal[symbol.Value];      
+      Result._AddRef;
+      code.Release;
     end
     else
     begin
       Result := symbol;
-      Result._AddRef;
     end;
   end
   else if code is TList then
@@ -182,12 +182,12 @@ begin
     begin
       // don't evaluate the parameters; the built-in functions must decide
       // which arguments they want quoted or evaluated
-      for expr in list.Items do expr._AddRef;
       Result := FBuiltIns[opName.Value](FGlobal, list);
-      list.Free;
+      list.Release;
     end
     else
     begin
+      raise Exception.Create('TODO');
       // this looks like a function application; evaluate all arguments
       evaluated := TList.Create();
       for expr in list.Items do evaluated.Items.Add(Eval(expr));
@@ -208,7 +208,6 @@ begin
   else
   begin
     Result := code;
-    Result._AddRef;
   end;
 end;
 
@@ -287,6 +286,7 @@ begin
     end;
 
     Result.ConsumedCharacters := Result.ConsumedCharacters + charsTrimmed;
+    Result._AddRef;
     Exit(Result);
   end;
 
@@ -310,6 +310,7 @@ begin
 
   list.ConsumedCharacters := i - 1 + charsTrimmed;
   Result := list;
+  Result._AddRef;
 end;
 
 function TLisp._def(context : TContext; args : TList) : TData;
@@ -317,21 +318,24 @@ var
   symbol : TSymbol;
   Value : TData;
 begin
+  if args.Size < 3 then raise Exception.Create('def: not enough arguments');
+
   symbol := args[1] as TSymbol;
   Value := args[2] as TData;
 
   Result := Eval(Value);
   context[symbol.Value] := Result;
+  Result._AddRef;
 end;
 
 function TLisp._type(context : TContext; args : TList) : TData;
 var
   name : string;
-  arg : TData;
+  val : TData;
 begin
-  // arg := args[1];
-  // Result := TString.Create(arg.ClassName);
-  Result := args[1];
+  val := Eval(args[1]);
+  Result := TString.Create(val.ClassName);
+  val.Release;
   Result._AddRef;
 end;
 
@@ -347,11 +351,11 @@ destructor TList.Destroy;
 var
   i : Integer;
   temp : TData;
+  text : string;
 begin
-  for i := 0 to Items.Count - 1 do
+  for temp in Items do
   begin
-    temp := Items[i];
-    temp._Release;
+    temp.Release;
   end;
   Items.Free;
   inherited;
@@ -419,7 +423,6 @@ begin
   if FSymbols.ContainsKey(name) then
   begin
     Result := FSymbols[name];
-    Result._AddRef;
   end
   else
   begin
@@ -492,6 +495,7 @@ end;
 destructor TData.Destroy;
 begin
   FInstances.Remove(self);
+  Writeln('Destroy ' + self.ToQualifiedString);  
   inherited;
 end;
 
