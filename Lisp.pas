@@ -11,6 +11,7 @@ uses
 
 var
   LispFormatSettings : TFormatSettings;
+  ShowMemoryLog : Boolean;
 
 type
 
@@ -131,6 +132,8 @@ type
       // built-in functions
       function _def(context : TContext; args : TList) : TData;
       function _type(context : TContext; args : TList) : TData;
+      function _print(context : TContext; args : TList) : TData;
+      function __cfg(context : TContext; args : TList) : TData;
 
   end;
 
@@ -145,6 +148,8 @@ begin
   FBuiltIns := TDictionary<string, ProcBuiltIn>.Create();
   FBuiltIns.Add('def', _def);
   FBuiltIns.Add('type', _type);
+  FBuiltIns.Add('print', _print);
+  FBuiltIns.Add('__cfg', __cfg);
 end;
 
 destructor TLisp.Destroy;
@@ -331,6 +336,18 @@ begin
   Result._AddRef;
 end;
 
+function TLisp._print(context: TContext; args: TList): TData;
+var
+  i: Integer;
+begin
+  for i := 1 to args.Size -1 do
+  begin
+    Writeln(args[i].ToString);
+  end;
+
+  Result := Nil;
+end;
+
 function TLisp._type(context : TContext; args : TList) : TData;
 var
   name : string;
@@ -341,6 +358,35 @@ begin
   Result := TString.Create(val.ClassName);
   val.Release;
   Result._AddRef;
+end;
+
+function TLisp.__cfg(context: TContext; args: TList): TData;
+var
+  setting : TSymbol;
+  value : TData;
+  bool : TBoolean;
+begin
+  setting := args[1] as TSymbol;
+  if setting.Value = 'ShowMemoryLog' then
+  begin
+    if args.Size = 3 then
+    begin
+      bool := args[2] as TBoolean;
+      ShowMemoryLog := bool.BoolValue;
+      Result := bool;
+      Result._AddRef;
+    end
+    else
+    begin
+      if ShowMemoryLog then Result := TBoolean.Create('True')
+      else Result := TBoolean.Create('False');
+      Result._AddRef;
+    end;
+  end
+  else
+  begin
+    Result := Nil;
+  end;
 end;
 
 { TParseList }
@@ -499,7 +545,8 @@ end;
 destructor TData.Destroy;
 begin
   FInstances.Remove(self);
-  Writeln('Destroy ' + self.ToQualifiedString);  
+  if ShowMemoryLog then  
+    Writeln('Destroy ' + self.ToQualifiedString);  
   inherited;
 end;
 
@@ -533,6 +580,7 @@ initialization
 
 TData.FInstances := TList<TData>.Create();
 LispFormatSettings := TFormatSettings.Create('en_US');
+ShowMemoryLog := False;
 
 finalization
 

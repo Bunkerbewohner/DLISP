@@ -27,8 +27,11 @@ begin
         if input <> '' then
         begin
           res := Lisp.Eval(input);
-          WriteLn(res.ToString);
-          res.Release;
+          if res <> Nil then
+          begin
+            WriteLn(res.ToString);
+            res.Release;
+          end;
         end;
       until input = '';
 
