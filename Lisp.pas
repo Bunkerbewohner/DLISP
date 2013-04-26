@@ -131,6 +131,7 @@ type
 
       // built-in functions
       function _def(context : TContext; args : TList) : TData;
+      function _set(context : TContext; args : TList) : TData;
       function _type(context : TContext; args : TList) : TData;
       function _print(context : TContext; args : TList) : TData;
       function __cfg(context : TContext; args : TList) : TData;
@@ -147,6 +148,7 @@ begin
 
   FBuiltIns := TDictionary<string, ProcBuiltIn>.Create();
   FBuiltIns.Add('def', _def);
+  FBuiltIns.Add('set!', _set);
   FBuiltIns.Add('type', _type);
   FBuiltIns.Add('print', _print);
   FBuiltIns.Add('__cfg', __cfg);
@@ -323,9 +325,9 @@ var
   symbol : TSymbol;
   Value : TData;
 begin
-  if args.Size < 3 then 
+  if args.Size < 3 then
     raise Exception.Create('def: not enough arguments');
-  if not (args[1] is TSymbol) then 
+  if not (args[1] is TSymbol) then
     raise Exception.Create('def: ' + args[1].Tostring + ' is not a valid symbol');
 
   symbol := args[1] as TSymbol;
@@ -346,6 +348,27 @@ begin
   end;
 
   Result := Nil;
+end;
+
+function TLisp._set(context: TContext; args: TList): TData;
+var
+  symbol : TSymbol;
+  Value : TData;
+begin
+  if args.Size < 3 then
+    raise Exception.Create('set!: not enough arguments');
+  if not (args[1] is TSymbol) then
+    raise Exception.Create('set!: ' + args[1].Tostring + ' is not a valid symbol');
+
+  symbol := args[1] as TSymbol;
+  Value := args[2] as TData;
+
+  if not (context.FSymbols.ContainsKey(symbol.Value)) then
+    raise Exception.Create('set!: variable ' + symbol.Value + ' does not exist');
+
+  Result := Eval(Value);
+  context[symbol.Value] := Result;
+  Result._AddRef;
 end;
 
 function TLisp._type(context : TContext; args : TList) : TData;
@@ -482,8 +505,17 @@ end;
 
 procedure TContext.SetSymbol(name : string; data : TData);
 begin
-  FSymbols.AddOrSetValue(name, data);
-  data._AddRef;
+  if FSymbols.ContainsKey(name) then
+  begin
+    FSymbols[name].Release;
+    FSymbols[name] := data;
+    data._AddRef;
+  end
+  else
+  begin
+    FSymbols.Add(name, data);
+    data._AddRef;
+  end;
 end;
 
 { TInteger }
