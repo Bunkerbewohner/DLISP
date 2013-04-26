@@ -15,11 +15,16 @@ var
 type
 
   TData = class abstract(TInterfacedObject)
+    private
+      class var FInstances : TList<TData>;
+
     public
       ConsumedCharacters : Integer;
       constructor Create();
+      destructor Destroy(); override;
 
       procedure Release();
+      function ToQualifiedString() : string;
   end;
 
   TAtom = class(TData)
@@ -106,7 +111,7 @@ type
         read GetSymbol write SetSymbol; default;
   end;
 
-  ProcBuiltIn = reference to function (context : TContext; args : TList) : TData;
+  ProcBuiltIn = reference to function(context : TContext; args : TList) : TData;
 
   TLisp = class
 
@@ -177,8 +182,8 @@ begin
     begin
       // don't evaluate the parameters; the built-in functions must decide
       // which arguments they want quoted or evaluated
+      for expr in list.Items do expr._AddRef;
       Result := FBuiltIns[opName.Value](FGlobal, list);
-      Result._AddRef;
       list.Free;
     end
     else
@@ -307,7 +312,7 @@ begin
   Result := list;
 end;
 
-function TLisp._def(context: TContext; args: TList): TData;
+function TLisp._def(context : TContext; args : TList) : TData;
 var
   symbol : TSymbol;
   Value : TData;
@@ -315,14 +320,19 @@ begin
   symbol := args[1] as TSymbol;
   Value := args[2] as TData;
 
-  context[symbol.Value] := Eval(Value);
-
-  Result := Value;
+  Result := Eval(Value);
+  context[symbol.Value] := Result;
 end;
 
-function TLisp._type(context: TContext; args: TList): TData;
+function TLisp._type(context : TContext; args : TList) : TData;
+var
+  name : string;
+  arg : TData;
 begin
-
+  // arg := args[1];
+  // Result := TString.Create(arg.ClassName);
+  Result := args[1];
+  Result._AddRef;
 end;
 
 { TParseList }
@@ -476,16 +486,49 @@ end;
 
 constructor TData.Create;
 begin
+  FInstances.Add(self);
+end;
 
+destructor TData.Destroy;
+begin
+  FInstances.Remove(self);
+  inherited;
 end;
 
 procedure TData.Release;
 begin
-  Self._Release;
+  self._Release;
+end;
+
+function TData.ToQualifiedString: string;
+begin
+  Result := self.ClassName + '[' + self.ToString + ']';
+end;
+
+procedure CheckMemoryLeaks();
+var
+  x : TData;
+begin
+  if TData.FInstances.Count > 0 then
+  begin
+    WriteLn('Warning: Memory leaks found!');
+    WriteLn;
+    for x in TData.FInstances do
+    begin
+      Writeln(x.ToQualifiedString + ' (' + IntToStr(x.RefCount) + ' references)');
+    end;
+    Readln;
+  end;
 end;
 
 initialization
 
+TData.FInstances := TList<TData>.Create();
 LispFormatSettings := TFormatSettings.Create('en_US');
+
+finalization
+
+CheckMemoryLeaks;
+TData.FInstances.Free;
 
 end.
