@@ -136,6 +136,8 @@ type
       function _print(context : TContext; args : TList) : TData;
       function __cfg(context : TContext; args : TList) : TData;
 
+      function _list(context : TContext; args : TList) : TData;
+
   end;
 
 implementation
@@ -151,6 +153,7 @@ begin
   FBuiltIns.Add('set!', _set);
   FBuiltIns.Add('type', _type);
   FBuiltIns.Add('print', _print);
+  FBuiltIns.Add('list', _list);
   FBuiltIns.Add('__cfg', __cfg);
 end;
 
@@ -184,6 +187,9 @@ begin
   else if code is TList then
   begin
     list := code as TList;
+    if not (list.Items[0] is TSymbol) then
+      raise Exception.Create(list.Items[0].ToString() + ' is not a function');
+
     opName := list.Items[0] as TSymbol;
     if FBuiltIns.ContainsKey(opName.Value) then
     begin
@@ -338,13 +344,32 @@ begin
   Result._AddRef;
 end;
 
+function TLisp._list(context: TContext; args: TList): TData;
+var
+  i: Integer;
+  list : TList;
+begin
+  list := TList.Create();
+  for i := 1 to args.Size - 1 do
+  begin
+    list.Items.Add(args[i]);
+    args[i]._AddRef;
+  end;
+
+  list._AddRef;
+  Result := list;
+end;
+
 function TLisp._print(context: TContext; args: TList): TData;
 var
   i: Integer;
+  res : TData;
 begin
   for i := 1 to args.Size -1 do
   begin
-    Writeln(args[i].ToString);
+    res := Eval(args[i]);
+    Writeln(res.ToString);
+    res.Release;
   end;
 
   Result := Nil;
