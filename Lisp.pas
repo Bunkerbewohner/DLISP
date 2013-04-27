@@ -143,6 +143,7 @@ type
 
   TContext = class
     protected
+      FParent : TContext;
       FSymbols : TDictionary<string, DataRef>;
 
       function GetSymbol(name : string) : Ref<TData>;
@@ -154,6 +155,19 @@ type
 
       property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
+  end;
+
+  TFunction = class(TData)
+    protected
+      FContext : TContext;
+      FCode : Ref<TList>;
+      FArgs : Ref<TList>;
+
+    public
+      constructor Create(code : Ref<TList>; parentContext : TContext);
+      destructor Destroy(); override;
+
+      function ToString : string; override;
   end;
 
   ProcBuiltIn = reference to function(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -179,6 +193,9 @@ type
 
       /// <summary>Defines a *new* variable in the current context</summary>
       function _def(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Creates a new function</summary>
+      function _fn(context : TContext; args : Ref<TList>) : Ref<TData>;
 
       /// <summary>Returns the data type of the first argument</summary>
       function _type(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -221,6 +238,7 @@ begin
   FBuiltIns.Add('print', _print);
   FBuiltIns.Add('list', _list);
   FBuiltIns.Add('quote', _quote);
+  FBuiltIns.Add('fn', _fn);
   FBuiltIns.Add('__cfg', __cfg);
 
   FBuiltIns.Add('+', _plus);
@@ -238,6 +256,8 @@ var
   list, evaluated : Ref<TList>;
   opName, symbol : TSymbol;
   expr : Ref<TData>;
+  fn : TFunction;
+  i: Integer;
 begin
   if code() is TSymbol then
   begin
@@ -266,17 +286,33 @@ begin
     end
     else
     begin
-      raise Exception.Create('TODO');
-
       // this looks like a function application; evaluate all arguments
       evaluated := TRef<TList>.Create(TList.Create());
-      for expr in list do
+      for i := 0 to list.Size - 1 do
       begin
-        evaluated.Add(Eval(expr));
+        evaluated.Add(Eval(list[i]));
       end;
 
-      Result := FGlobal[opName.Value];
+      fn := evaluated[0]() as TFunction;
+
+      // args[0] = function name
+      // register arguments in context
+      for i := 1 to evaluated.Size - 1 do
+      begin
+        symbol := fn.FArgs()[i - 1]() as TSymbol;
+        fn.FContext[symbol.Value] := evaluated[i];
+      end;
+
+      // execute the function code
+      for i := 2 to fn.FCode().Size - 1 do
+      begin
+        Result := Eval(fn.FCode()[i]);
+      end;      
     end;
+  end
+  else if code() is TFunction then
+  begin
+    raise Exception.Create('call function');
   end
   else
   begin
@@ -403,6 +439,14 @@ begin
 
   Result := Eval(args[2]);
   context[symbol.Value] := Result;
+end;
+
+function TLisp._fn(context : TContext; args : Ref<TList>) : Ref<TData>;
+var
+  func : TFunction;
+begin
+  func := TFunction.Create(args, context);
+  Result := CreateRef(func);
 end;
 
 function TLisp._list(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -597,6 +641,7 @@ end;
 
 constructor TContext.Create;
 begin
+  FParent := nil;
   FSymbols := TDictionary<string, DataRef>.Create();
 end;
 
@@ -794,6 +839,43 @@ end;
 function TNothing.ToString : string;
 begin
   Result := 'TNothing';
+end;
+
+{ TFunction }
+
+constructor TFunction.Create(code : Ref<TList>; parentContext : TContext);
+var
+  args, list : TList;
+  i: Integer;
+begin
+  FCode := code;
+  FContext := TContext.Create();
+  FContext.FParent := parentContext;
+
+  // (fn [p1 p2 & ps] (...) (...))
+  Assert((code[0]() is TSymbol) and (code[0]().Value = 'fn'));
+  Assert(code[1]() is TList);
+  Assert(code.Size > 2);
+
+  // First argument is a list of symbols for arguments
+  //FArgs := TRef<TList>.Create(code[1]() as TList);
+  list := code[1]() as TList;
+  args := TList.Create();
+  for i := 1 to list.Size - 1 do
+    args.Add(list[i]);
+
+  FArgs := TRef<TList>.Create(args);
+end;
+
+destructor TFunction.Destroy;
+begin
+  FContext.Free;
+  inherited;
+end;
+
+function TFunction.ToString : string;
+begin
+  Result := FCode.ToString;
 end;
 
 initialization

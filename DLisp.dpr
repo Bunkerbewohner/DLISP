@@ -5,7 +5,8 @@ program DLisp;
 {$R *.res}
 
 uses
-  System.SysUtils, System.Generics.Collections,
+  System.SysUtils,
+  System.Generics.Collections,
   Lisp in 'Lisp.pas',
   Memory in 'Memory.pas';
 
