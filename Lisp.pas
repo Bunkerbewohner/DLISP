@@ -6,6 +6,7 @@ uses
   System.StrUtils,
   Classes,
   SysUtils,
+  Memory,
   System.Generics.Collections,
   System.RegularExpressions;
 
@@ -21,7 +22,7 @@ type
 
     public
       Value : string;
-    
+
       ConsumedCharacters : Integer;
       constructor Create();
       destructor Destroy(); override;
@@ -30,11 +31,33 @@ type
       function ToQualifiedString() : string;
   end;
 
+  TNothing = class(TData)
+    public
+      constructor Create();
+
+      function ToString : string; override;
+  end;
+
   TAtom = class(TData)
     public
       constructor Create(v : string);
 
       function ToString : string; override;
+  end;
+
+  TList = class;
+
+  TLispListEnumerator = class(TEnumerator < Ref < TData >> )
+    private
+      FList : TList;
+      FCurrent : Ref<TData>;
+      FIndex : Integer;
+
+    public
+      constructor Create(list : Lisp.TList);
+
+      function DoGetCurrent : Ref<TData>; override;
+      function DoMoveNext : Boolean; override;
   end;
 
   TSymbol = class(TAtom)
@@ -75,7 +98,7 @@ type
       function ToInteger() : Integer; override;
       function ToSingle() : Single; override;
 
-      procedure Plus(b : TNumber); override;      
+      procedure Plus(b : TNumber); override;
 
       class function Match(v : string) : Boolean;
   end;
@@ -90,45 +113,51 @@ type
       function ToInteger() : Integer; override;
       function ToSingle() : Single; override;
 
-      procedure Plus(b : TNumber); override;      
+      procedure Plus(b : TNumber); override;
 
       class function Match(v : string) : Boolean;
   end;
 
+  DataRef = Ref<TData>;
+
   TList = class(TData)
     protected
-      function GetSize() : Integer;
+      Items : TList<DataRef>;
 
-      function GetItem(n : Integer) : TData;
+      function GetSize() : Integer;
+      function GetItem(n : Integer) : DataRef;
 
     public
-      Items : TObjectList<TData>;
 
       property Size : Integer read GetSize;
-      property DataItems[n : Integer] : TData read GetItem; default;
+      property DataItems[n : Integer] : DataRef read GetItem; default;
+
+      procedure Add(item : DataRef);
 
       constructor Create();
       destructor Destroy(); override;
+
+      function GetEnumerator : TEnumerator<DataRef>;
 
       function ToString : string; override;
   end;
 
   TContext = class
     protected
-      FSymbols : TObjectDictionary<string, TData>;
+      FSymbols : TDictionary<string, DataRef>;
 
-      function GetSymbol(name : string) : TData;
-      procedure SetSymbol(name : string; data : TData);
+      function GetSymbol(name : string) : Ref<TData>;
+      procedure SetSymbol(name : string; data : Ref<TData>);
 
     public
       constructor Create();
       destructor Destroy(); override;
 
-      property Symbols[name : string] : TData
+      property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
   end;
 
-  ProcBuiltIn = reference to function(context : TContext; args : TList) : TData;
+  ProcBuiltIn = reference to function(context : TContext; args : Ref<TList>) : Ref<TData>;
 
   TLisp = class
 
@@ -136,30 +165,37 @@ type
       FGlobal : TContext;
       FBuiltIns : TDictionary<string, ProcBuiltIn>;
 
-      function Eval(code : TData) : TData; overload;
+      function Eval(code : Ref<TData>) : Ref<TData>; overload;
 
     public
       constructor Create();
       destructor Destroy(); override;
 
-      function Read(input : string) : TData;
-      function Eval(input : string) : TData; overload;
+      function Read(input : string) : Ref<TData>;
+      function Eval(input : string) : Ref<TData>; overload;
 
       // built-in functions
-      function _def(context : TContext; args : TList) : TData;
-      function _set(context : TContext; args : TList) : TData;
-      function _type(context : TContext; args : TList) : TData;
-      function _print(context : TContext; args : TList) : TData;
-      function __cfg(context : TContext; args : TList) : TData;
+      function _def(context : TContext; args : Ref<TList>) : Ref<TData>;
+      function _set(context : TContext; args : Ref<TList>) : Ref<TData>;
+      function _type(context : TContext; args : Ref<TList>) : Ref<TData>;
+      function _print(context : TContext; args : Ref<TList>) : Ref<TData>;
+      function __cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
 
-      function _list(context : TContext; args : TList) : TData;
+      function _list(context : TContext; args : Ref<TList>) : Ref<TData>;
 
       // math
-      function _plus(context : TContext; args : TList) : TData;
+      function _plus(context : TContext; args : Ref<TList>) : Ref<TData>;
 
   end;
 
+function CreateRef(data : TData) : DataRef;
+
 implementation
+
+function CreateRef(data : TData) : DataRef;
+begin
+  Result :=  TRef<TData>.Create(data);
+end;
 
 { TLisp }
 
@@ -185,58 +221,49 @@ begin
   inherited;
 end;
 
-function TLisp.Eval(code : TData) : TData;
+function TLisp.Eval(code : Ref<TData>) : Ref<TData>;
 var
-  list, evaluated : TList;
+  list, evaluated : Ref<TList>;
   opName, symbol : TSymbol;
-  expr : TData;
+  expr : Ref<TData>;
 begin
-  if code is TSymbol then
+  if code() is TSymbol then
   begin
-    symbol := code as TSymbol;
+    symbol := code() as TSymbol;
     if FGlobal.FSymbols.ContainsKey(symbol.Value) then
     begin
       Result := FGlobal[symbol.Value];
-      Result._AddRef;
-      code.Release;
     end
     else
     begin
-      Result := symbol;
+      Result := code;
     end;
   end
-  else if code is TList then
+  else if code() is TList then
   begin
-    list := code as TList;
-    if not(list.Items[0] is TSymbol) then
-        raise Exception.Create(list.Items[0].ToString() + ' is not a function');
+    list := Ref<TList>(code);
+    if not(list[0]() is TSymbol) then
+        raise Exception.Create(list[0]().ToString() + ' is not a function');
 
-    opName := list.Items[0] as TSymbol;
+    opName := list[0]() as TSymbol;
     if FBuiltIns.ContainsKey(opName.Value) then
     begin
       // don't evaluate the parameters; the built-in functions must decide
       // which arguments they want quoted or evaluated
       Result := FBuiltIns[opName.Value](FGlobal, list);
-      list.Release;
     end
     else
     begin
       raise Exception.Create('TODO');
+
       // this looks like a function application; evaluate all arguments
-      evaluated := TList.Create();
-      for expr in list.Items do evaluated.Items.Add(Eval(expr));
+      evaluated := TRef<TList>.Create(TList.Create());
+      for expr in list do
+      begin
+        evaluated.Add(Eval(expr));
+      end;
 
-      if not(evaluated[0] is TSymbol) then
-          raise Exception.Create(evaluated[0].ToString() + ' is not a function');
-
-      opName := (evaluated.Items[0] as TSymbol);
       Result := FGlobal[opName.Value];
-
-      Result._AddRef; // inc ref for occurence in list
-      Result._AddRef; // inc ref for occurence in evaluated copy
-
-      list.Free;
-      evaluated.Free;
     end;
   end
   else
@@ -245,17 +272,17 @@ begin
   end;
 end;
 
-function TLisp.Eval(input : string) : TData;
+function TLisp.Eval(input : string) : Ref<TData>;
 begin
   Result := Eval(read(input));
 end;
 
-function TLisp.Read(input : string) : TData;
+function TLisp.Read(input : string) : Ref<TData>;
 var
   i, j : Integer;
   inString : Boolean;
-  list : TList;
-  item : TData;
+  list : Ref<TList>;
+  item : Ref<TData>;
   text : string;
   charsTrimmed : Integer;
 
@@ -292,14 +319,19 @@ begin
 
       text := input.Substring(0, i - 1);
 
-      if TInteger.Match(text) then Result := TInteger.Create(text)
-      else if TFloat.Match(text) then Result := TFloat.Create(text)
-      else if TBoolean.Match(text) then Result := TBoolean.Create(text)
-      else if TSymbol.Match(text) then Result := TSymbol.Create(text)
-      else Result := TAtom.Create(text);
+      if TInteger.Match(text) then
+          Result := CreateRef(TInteger.Create(text))
+      else if TFloat.Match(text) then
+          Result := CreateRef(TFloat.Create(text))
+      else if TBoolean.Match(text) then
+          Result := CreateRef(TBoolean.Create(text))
+      else if TSymbol.Match(text) then
+          Result := CreateRef(TSymbol.Create(text))
+      else
+          Result := CreateRef(TAtom.Create(text));
 
-      text := Result.ClassName;
-      Result.ConsumedCharacters := i - 1;
+      text := Result().ClassName;
+      Result().ConsumedCharacters := i - 1;
     end
     else
     begin
@@ -315,19 +347,18 @@ begin
 
       // including closing quote (i - 1 + 1 = i)
       text := input.Substring(0, i);
-      Result := TString.Create(text);
-      Result.ConsumedCharacters := i;
+      Result := CreateRef(TString.Create(text));
+      Result().ConsumedCharacters := i;
     end;
 
-    Result.ConsumedCharacters := Result.ConsumedCharacters + charsTrimmed;
-    Result._AddRef;
+    Result().ConsumedCharacters := Result().ConsumedCharacters + charsTrimmed;
     Exit(Result);
   end;
 
   // assume it's a list
   i := 2;
 
-  list := TList.Create();
+  list := TRef<TList>.Create(TList.Create());
 
   while i <= Length(input) do
   begin
@@ -339,49 +370,44 @@ begin
 
     item := read(input.Substring(i - 1));
     i := i + item.ConsumedCharacters;
-    list.Items.Add(item);
+    list.Add(item);
   end;
 
   list.ConsumedCharacters := i - 1 + charsTrimmed;
-  Result := list;
-  Result._AddRef;
+  Result := Ref<TData>(list);
 end;
 
-function TLisp._def(context : TContext; args : TList) : TData;
+function TLisp._def(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   symbol : TSymbol;
-  Value : TData;
 begin
   if args.Size < 3 then
       raise Exception.Create('def: not enough arguments');
-  if not(args[1] is TSymbol) then
-      raise Exception.Create('def: ' + args[1].ToString + ' is not a valid symbol');
+  if not(args[1]() is TSymbol) then
+      raise Exception.Create('def: ' + args[1]().ToString + ' is not a valid symbol');
 
-  symbol := args[1] as TSymbol;
-  Value := args[2] as TData;
-
-  Result := Eval(Value);
+  symbol := args[1]() as TSymbol;
+  Result := Eval(args[2]);
   context[symbol.Value] := Result;
-  Result._AddRef;
 end;
 
-function TLisp._list(context : TContext; args : TList) : TData;
+function TLisp._list(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
-  i : Integer;
   list : TList;
+  a, b : DataRef;
+  i : Integer;
 begin
   list := TList.Create();
+
   for i := 1 to args.Size - 1 do
   begin
-    list.Items.Add(Eval(args[i]));
-    list[i - 1]._AddRef;
+    list.Add(Eval(args[i]));
   end;
 
-  list._AddRef;
-  Result := list;
+  Result := CreateRef(list);
 end;
 
-function TLisp._plus(context : TContext; args : TList) : TData;
+function TLisp._plus(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   resultType : string;
   i, sumInt : Integer;
@@ -391,115 +417,111 @@ var
   resInt : TInteger;
   resFloat : TFloat;
 begin
-  // evaluate arguments
-  evaluatedArgs := TList.Create();
-  for i := 1 to args.Size - 1 do
-  begin
-    item := Eval(args[i]);
-    evaluatedArgs.Items.Add(item);
-    item._AddRef;
-  end;
+  (*
+   // evaluate arguments
+   evaluatedArgs := TList.Create();
+   for i := 1 to args.Size - 1 do
+   begin
+   item := Eval(args[i]);
+   evaluatedArgs.Items.Add(item);
+   item._AddRef;
+   end;
 
-  // Sum up the result; type depending on first item
-  if evaluatedArgs[0] is TFloat then
-  begin
-    resFloat := TFloat.Create(0);
-    for arg in evaluatedArgs.Items do
-    begin
-      resFloat.Plus(arg as TNumber);
-    end;
+   // Sum up the result; type depending on first item
+   if evaluatedArgs[0] is TFloat then
+   begin
+   resFloat := TFloat.Create(0);
+   for arg in evaluatedArgs.Items do
+   begin
+   resFloat.Plus(arg as TNumber);
+   end;
 
-    Result := resFloat;
-    Result._AddRef;
-  end
-  else if evaluatedArgs[0] is TInteger then       
-  begin
-    resInt := TInteger.Create(0);
-    for arg in evaluatedArgs.Items do
-    begin
-      resInt.Plus(arg as TNumber);
-    end;
+   Result := resFloat;
+   Result._AddRef;
+   end
+   else if evaluatedArgs[0] is TInteger then
+   begin
+   resInt := TInteger.Create(0);
+   for arg in evaluatedArgs.Items do
+   begin
+   resInt.Plus(arg as TNumber);
+   end;
 
-    Result := resInt;
-    Result._AddRef;
-  end
-  else
-  begin
-    raise Exception.Create('+: unknown number type');
-  end;  
+   Result := resInt;
+   Result._AddRef;
+   end
+   else
+   begin
+   raise Exception.Create('+: unknown number type');
+   end;
 
-  evaluatedArgs.Free;
+   evaluatedArgs.Free;
+  *)
 end;
 
-function TLisp._print(context : TContext; args : TList) : TData;
+function TLisp._print(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   i : Integer;
-  res : TData;
+  res, a : Ref<TData>;
 begin
   for i := 1 to args.Size - 1 do
   begin
     res := Eval(args[i]);
     Writeln(res.ToString);
-    res.Release;
   end;
 
-  Result := nil;
+  Result := CreateRef(TNothing.Create());
 end;
 
-function TLisp._set(context : TContext; args : TList) : TData;
+function TLisp._set(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   symbol : TSymbol;
-  Value : TData;
+  Value : Ref<TData>;
 begin
   if args.Size < 3 then
       raise Exception.Create('set!: not enough arguments');
-  if not(args[1] is TSymbol) then
-      raise Exception.Create('set!: ' + args[1].ToString + ' is not a valid symbol');
+  if not(args[1]() is TSymbol) then
+      raise Exception.Create('set!: ' + args[1]().ToString + ' is not a valid symbol');
 
-  symbol := args[1] as TSymbol;
-  Value := args[2] as TData;
+  symbol := args[1]() as TSymbol;
+  Value := args[2];
 
   if not(context.FSymbols.ContainsKey(symbol.Value)) then
       raise Exception.Create('set!: variable ' + symbol.Value + ' does not exist');
 
   Result := Eval(Value);
   context[symbol.Value] := Result;
-  Result._AddRef;
 end;
 
-function TLisp._type(context : TContext; args : TList) : TData;
+function TLisp._type(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   name : string;
-  val : TData;
+  val : Ref<TData>;
 begin
-  args[1]._AddRef;
   val := Eval(args[1]);
-  Result := TString.Create(val.ClassName);
-  val.Release;
-  Result._AddRef;
+  Result := CreateRef(TString.Create(val().ClassName));
 end;
 
-function TLisp.__cfg(context : TContext; args : TList) : TData;
+function TLisp.__cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   setting : TSymbol;
-  Value : TData;
   bool : TBoolean;
 begin
-  setting := args[1] as TSymbol;
+  setting := args[1]() as TSymbol;
   if setting.Value = 'ShowMemoryLog' then
   begin
     if args.Size = 3 then
     begin
-      bool := args[2] as TBoolean;
+      bool := args[2]() as TBoolean;
       ShowMemoryLog := bool.BoolValue;
-      Result := bool;
-      Result._AddRef;
+      Result := args[2];
     end
     else
     begin
-      if ShowMemoryLog then Result := TBoolean.Create('True')
-      else Result := TBoolean.Create('False');
-      Result._AddRef;
+      if ShowMemoryLog then
+          Result := CreateRef(TBoolean.Create('True'))
+      else
+          Result := CreateRef(TBoolean.Create('False'));
     end;
   end
   else
@@ -510,29 +532,31 @@ end;
 
 { TParseList }
 
+procedure TList.Add(item : Ref<TData>);
+begin
+  Items.Add(item);
+end;
+
 constructor TList.Create;
 begin
   inherited;
-  Items := TObjectList<TData>.Create(False);
+  Items := TList<DataRef>.Create();
 end;
 
 destructor TList.Destroy;
-var
-  i : Integer;
-  temp : TData;
-  text : string;
 begin
-  for temp in Items do
-  begin
-    temp.Release;
-  end;
   Items.Free;
   inherited;
 end;
 
-function TList.GetItem(n : Integer) : TData;
+function TList.GetEnumerator : TEnumerator<Ref<TData>>;
 begin
-  Result := Items[n];
+  Result := TLispListEnumerator.Create(self);
+end;
+
+function TList.GetItem(n : Integer) : Ref<TData>;
+begin
+  Result := Ref<TData>(Items[n]);
 end;
 
 function TList.GetSize : Integer;
@@ -543,12 +567,16 @@ end;
 function TList.ToString : string;
 var
   i : Integer;
+  DataRef : Ref<TData>;
+  data : TData;
 begin
   Result := '(';
   for i := 0 to Items.Count - 1 do
   begin
     if i > 0 then Result := Result + ' ';
-    Result := Result + Items[i].ToString;
+    DataRef := Ref<TData>(Items[i]);
+    data := DataRef();
+    Result := Result + data.ToString;
   end;
   Result := Result + ')';
 end;
@@ -570,24 +598,16 @@ end;
 
 constructor TContext.Create;
 begin
-  FSymbols := TObjectDictionary<string, TData>.Create([]);
+  FSymbols := TDictionary<string, DataRef>.Create();
 end;
 
 destructor TContext.Destroy;
-var
-  vs : TArray<TData>;
-  v : TData;
 begin
   inherited;
-  vs := FSymbols.Values.ToArray;
   FSymbols.Free;
-  for v in vs do
-  begin
-    v.Release;
-  end;
 end;
 
-function TContext.GetSymbol(name : string) : TData;
+function TContext.GetSymbol(name : string) : Ref<TData>;
 begin
   if FSymbols.ContainsKey(name) then
   begin
@@ -599,18 +619,15 @@ begin
   end;
 end;
 
-procedure TContext.SetSymbol(name : string; data : TData);
+procedure TContext.SetSymbol(name : string; data : Ref<TData>);
 begin
   if FSymbols.ContainsKey(name) then
   begin
-    FSymbols[name].Release;
-    FSymbols[name] := data;
-    data._AddRef;
+    FSymbols[name] := DataRef(data);
   end
   else
   begin
-    FSymbols.Add(name, data);
-    data._AddRef;
+    FSymbols.Add(name, DataRef(data));
   end;
 end;
 
@@ -633,7 +650,7 @@ begin
   Result := TRegEx.IsMatch(v, '^\d+$');
 end;
 
-procedure TInteger.Plus(b: TNumber);
+procedure TInteger.Plus(b : TNumber);
 begin
   IntValue := IntValue + b.ToInteger;
   Value := IntToStr(IntValue);
@@ -668,18 +685,18 @@ begin
   Result := TRegEx.IsMatch(v, '^\d+\.\d+');
 end;
 
-procedure TFloat.Plus(b: TNumber);
+procedure TFloat.Plus(b : TNumber);
 begin
   FloatValue := FloatValue + b.ToSingle;
   Value := FloatToStr(FloatValue);
 end;
 
-function TFloat.ToInteger: Integer;
+function TFloat.ToInteger : Integer;
 begin
   Result := Round(FloatValue);
 end;
 
-function TFloat.ToSingle: Single;
+function TFloat.ToSingle : Single;
 begin
   Result := FloatValue;
 end;
@@ -711,7 +728,7 @@ end;
 
 constructor TData.Create;
 begin
-  FInstances.Add(self);
+  // FInstances.Add(self);
   Value := '()';
 end;
 
@@ -747,6 +764,37 @@ begin
     end;
     Readln;
   end;
+end;
+
+{ TLispListEnumerator }
+
+constructor TLispListEnumerator.Create(list : Lisp.TList);
+begin
+  self.FList := list;
+  self.FCurrent := nil;
+  self.FIndex := 0;
+end;
+
+function TLispListEnumerator.DoGetCurrent : Ref<TData>;
+begin
+  Result := FList[FIndex];
+end;
+
+function TLispListEnumerator.DoMoveNext : Boolean;
+begin
+  Result := FIndex < FList.Size;
+end;
+
+{ TNothing }
+
+constructor TNothing.Create;
+begin
+  Value := '';
+end;
+
+function TNothing.ToString: string;
+begin
+  Result := 'TNothing';
 end;
 
 initialization

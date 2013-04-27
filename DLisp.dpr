@@ -5,14 +5,14 @@ program DLisp;
 {$R *.res}
 
 uses
-  System.SysUtils,
-  Lisp in 'Lisp.pas';
+  System.SysUtils, System.Generics.Collections,
+  Lisp in 'Lisp.pas',
+  Memory in 'Memory.pas';
 
 var
   input : string;
   Lisp : TLisp;
-  res : TData;
-
+  res : Ref<TData>;
 begin
   try
     begin
@@ -20,17 +20,15 @@ begin
 
       Lisp := TLisp.Create();
       WriteLn('DLISP 0.1');
-      WriteLn;
 
       repeat
         ReadLn(input);
         if input <> '' then
         begin
           res := Lisp.Eval(input);
-          if res <> Nil then
+          if not (res() is TNothing) then
           begin
             WriteLn(res.ToString);
-            res.Release;
           end;
         end;
       until input = '';
