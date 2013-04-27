@@ -20,6 +20,8 @@ type
       class var FInstances : TList<TData>;
 
     public
+      Value : string;
+    
       ConsumedCharacters : Integer;
       constructor Create();
       destructor Destroy(); override;
@@ -30,8 +32,6 @@ type
 
   TAtom = class(TData)
     public
-      Value : string;
-
       constructor Create(v : string);
 
       function ToString : string; override;
@@ -58,14 +58,24 @@ type
   end;
 
   TNumber = class(TAtom)
+    public
+      function ToInteger() : Integer; virtual; abstract;
+      function ToSingle() : Single; virtual; abstract;
 
+      procedure Plus(b : TNumber); virtual; abstract;
   end;
 
   TInteger = class(TNumber)
     public
       IntValue : Integer;
 
-      constructor Create(v : string);
+      constructor Create(v : string); overload;
+      constructor Create(v : Integer); overload;
+
+      function ToInteger() : Integer; override;
+      function ToSingle() : Single; override;
+
+      procedure Plus(b : TNumber); override;      
 
       class function Match(v : string) : Boolean;
   end;
@@ -74,7 +84,13 @@ type
     public
       FloatValue : Single;
 
-      constructor Create(v : string);
+      constructor Create(v : string); overload;
+      constructor Create(v : Single); overload;
+
+      function ToInteger() : Integer; override;
+      function ToSingle() : Single; override;
+
+      procedure Plus(b : TNumber); override;      
 
       class function Match(v : string) : Boolean;
   end;
@@ -138,6 +154,9 @@ type
 
       function _list(context : TContext; args : TList) : TData;
 
+      // math
+      function _plus(context : TContext; args : TList) : TData;
+
   end;
 
 implementation
@@ -155,6 +174,8 @@ begin
   FBuiltIns.Add('print', _print);
   FBuiltIns.Add('list', _list);
   FBuiltIns.Add('__cfg', __cfg);
+
+  FBuiltIns.Add('+', _plus);
 end;
 
 destructor TLisp.Destroy;
@@ -175,7 +196,7 @@ begin
     symbol := code as TSymbol;
     if FGlobal.FSymbols.ContainsKey(symbol.Value) then
     begin
-      Result := FGlobal[symbol.Value];      
+      Result := FGlobal[symbol.Value];
       Result._AddRef;
       code.Release;
     end
@@ -187,8 +208,8 @@ begin
   else if code is TList then
   begin
     list := code as TList;
-    if not (list.Items[0] is TSymbol) then
-      raise Exception.Create(list.Items[0].ToString() + ' is not a function');
+    if not(list.Items[0] is TSymbol) then
+        raise Exception.Create(list.Items[0].ToString() + ' is not a function');
 
     opName := list.Items[0] as TSymbol;
     if FBuiltIns.ContainsKey(opName.Value) then
@@ -332,9 +353,9 @@ var
   Value : TData;
 begin
   if args.Size < 3 then
-    raise Exception.Create('def: not enough arguments');
-  if not (args[1] is TSymbol) then
-    raise Exception.Create('def: ' + args[1].Tostring + ' is not a valid symbol');
+      raise Exception.Create('def: not enough arguments');
+  if not(args[1] is TSymbol) then
+      raise Exception.Create('def: ' + args[1].ToString + ' is not a valid symbol');
 
   symbol := args[1] as TSymbol;
   Value := args[2] as TData;
@@ -344,52 +365,102 @@ begin
   Result._AddRef;
 end;
 
-function TLisp._list(context: TContext; args: TList): TData;
+function TLisp._list(context : TContext; args : TList) : TData;
 var
-  i: Integer;
+  i : Integer;
   list : TList;
 begin
   list := TList.Create();
   for i := 1 to args.Size - 1 do
   begin
-    list.Items.Add(args[i]);
-    args[i]._AddRef;
+    list.Items.Add(Eval(args[i]));
+    list[i - 1]._AddRef;
   end;
 
   list._AddRef;
   Result := list;
 end;
 
-function TLisp._print(context: TContext; args: TList): TData;
+function TLisp._plus(context : TContext; args : TList) : TData;
 var
-  i: Integer;
+  resultType : string;
+  i, sumInt : Integer;
+  sumFloat : Single;
+  evaluatedArgs : TList;
+  arg, item : TData;
+  resInt : TInteger;
+  resFloat : TFloat;
+begin
+  // evaluate arguments
+  evaluatedArgs := TList.Create();
+  for i := 1 to args.Size - 1 do
+  begin
+    item := Eval(args[i]);
+    evaluatedArgs.Items.Add(item);
+    item._AddRef;
+  end;
+
+  // Sum up the result; type depending on first item
+  if evaluatedArgs[0] is TFloat then
+  begin
+    resFloat := TFloat.Create(0);
+    for arg in evaluatedArgs.Items do
+    begin
+      resFloat.Plus(arg as TNumber);
+    end;
+
+    Result := resFloat;
+    Result._AddRef;
+  end
+  else if evaluatedArgs[0] is TInteger then       
+  begin
+    resInt := TInteger.Create(0);
+    for arg in evaluatedArgs.Items do
+    begin
+      resInt.Plus(arg as TNumber);
+    end;
+
+    Result := resInt;
+    Result._AddRef;
+  end
+  else
+  begin
+    raise Exception.Create('+: unknown number type');
+  end;  
+
+  evaluatedArgs.Free;
+end;
+
+function TLisp._print(context : TContext; args : TList) : TData;
+var
+  i : Integer;
   res : TData;
 begin
-  for i := 1 to args.Size -1 do
+  for i := 1 to args.Size - 1 do
   begin
     res := Eval(args[i]);
     Writeln(res.ToString);
     res.Release;
   end;
 
-  Result := Nil;
+  Result := nil;
 end;
 
-function TLisp._set(context: TContext; args: TList): TData;
+function TLisp._set(context : TContext; args : TList) : TData;
 var
   symbol : TSymbol;
   Value : TData;
 begin
   if args.Size < 3 then
-    raise Exception.Create('set!: not enough arguments');
-  if not (args[1] is TSymbol) then
-    raise Exception.Create('set!: ' + args[1].Tostring + ' is not a valid symbol');
+      raise Exception.Create('set!: not enough arguments');
+  if not(args[1] is TSymbol) then
+      raise Exception.Create('set!: ' + args[1].ToString + ' is not a valid symbol');
 
   symbol := args[1] as TSymbol;
   Value := args[2] as TData;
 
-  if not (context.FSymbols.ContainsKey(symbol.Value)) then
-    raise Exception.Create('set!: variable ' + symbol.Value + ' does not exist');
+  if not(context.FSymbols.ContainsKey(symbol.Value)) then
+      raise Exception.Create('set!: variable ' + symbol.Value + ' does not exist');
 
   Result := Eval(Value);
   context[symbol.Value] := Result;
@@ -408,10 +479,10 @@ begin
   Result._AddRef;
 end;
 
-function TLisp.__cfg(context: TContext; args: TList): TData;
+function TLisp.__cfg(context : TContext; args : TList) : TData;
 var
   setting : TSymbol;
-  value : TData;
+  Value : TData;
   bool : TBoolean;
 begin
   setting := args[1] as TSymbol;
@@ -433,7 +504,7 @@ begin
   end
   else
   begin
-    Result := Nil;
+    Result := nil;
   end;
 end;
 
@@ -551,9 +622,31 @@ begin
   IntValue := StrToInt(v);
 end;
 
+constructor TInteger.Create(v : Integer);
+begin
+  IntValue := v;
+  Value := IntToStr(v);
+end;
+
 class function TInteger.Match(v : string) : Boolean;
 begin
   Result := TRegEx.IsMatch(v, '^\d+$');
+end;
+
+procedure TInteger.Plus(b: TNumber);
+begin
+  IntValue := IntValue + b.ToInteger;
+  Value := IntToStr(IntValue);
+end;
+
+function TInteger.ToInteger : Integer;
+begin
+  Result := IntValue;
+end;
+
+function TInteger.ToSingle : Single;
+begin
+  Result := IntValue;
 end;
 
 { TSingle }
@@ -564,9 +657,31 @@ begin
   FloatValue := StrToFloat(v, LispFormatSettings);
 end;
 
+constructor TFloat.Create(v : Single);
+begin
+  FloatValue := v;
+  Value := FloatToStr(v);
+end;
+
 class function TFloat.Match(v : string) : Boolean;
 begin
   Result := TRegEx.IsMatch(v, '^\d+\.\d+');
+end;
+
+procedure TFloat.Plus(b: TNumber);
+begin
+  FloatValue := FloatValue + b.ToSingle;
+  Value := FloatToStr(FloatValue);
+end;
+
+function TFloat.ToInteger: Integer;
+begin
+  Result := Round(FloatValue);
+end;
+
+function TFloat.ToSingle: Single;
+begin
+  Result := FloatValue;
 end;
 
 { TSymbol }
@@ -597,13 +712,14 @@ end;
 constructor TData.Create;
 begin
   FInstances.Add(self);
+  Value := '()';
 end;
 
 destructor TData.Destroy;
 begin
   FInstances.Remove(self);
-  if ShowMemoryLog then  
-    Writeln('Destroy ' + self.ToQualifiedString);  
+  if ShowMemoryLog then
+      Writeln('Destroy ' + self.ToQualifiedString);
   inherited;
 end;
 
@@ -612,7 +728,7 @@ begin
   self._Release;
 end;
 
-function TData.ToQualifiedString: string;
+function TData.ToQualifiedString : string;
 begin
   Result := self.ClassName + '[' + self.ToString + ']';
 end;
@@ -623,8 +739,8 @@ var
 begin
   if TData.FInstances.Count > 0 then
   begin
-    WriteLn('Warning: Memory leaks found!');
-    WriteLn;
+    Writeln('Warning: Memory leaks found!');
+    Writeln;
     for x in TData.FInstances do
     begin
       Writeln(x.ToQualifiedString + ' (' + IntToStr(x.RefCount) + ' references)');

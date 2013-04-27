@@ -10,3 +10,4 @@ __history
 *.dll
 bin/*
 
+/.project
