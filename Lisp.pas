@@ -174,18 +174,29 @@ type
       function Read(input : string) : Ref<TData>;
       function Eval(input : string) : Ref<TData>; overload;
 
+      //========================================================================
       // built-in functions
+      //========================================================================
+
+      /// <summary>Defines a *new* variable in the current context</summary>
       function _def(context : TContext; args : Ref<TList>) : Ref<TData>;
-      function _set(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Returns the data type of the first argument</summary>
       function _type(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Prints a variable number of arguments to stdout</summary>
       function _print(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Returns the first argument unevaluated</summary>
       function _quote(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Creates a list of given arguments</summary>
       function _list(context : TContext; args : Ref<TList>) : Ref<TData>;
 
       // math
       function _plus(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Gets or sets DISP configuration settings</summary>
       function __cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
 
   end;
@@ -207,7 +218,6 @@ begin
 
   FBuiltIns := TDictionary<string, ProcBuiltIn>.Create();
   FBuiltIns.Add('def', _def);
-  FBuiltIns.Add('set!', _set);
   FBuiltIns.Add('type', _type);
   FBuiltIns.Add('print', _print);
   FBuiltIns.Add('list', _list);
@@ -479,26 +489,6 @@ end;
 function TLisp._quote(context: TContext; args: Ref<TList>): Ref<TData>;
 begin
   Result := args[1];
-end;
-
-function TLisp._set(context : TContext; args : Ref<TList>) : Ref<TData>;
-var
-  symbol : TSymbol;
-  Value : Ref<TData>;
-begin
-  if args.Size < 3 then
-      raise Exception.Create('set!: not enough arguments');
-  if not(args[1]() is TSymbol) then
-      raise Exception.Create('set!: ' + args[1]().ToString + ' is not a valid symbol');
-
-  symbol := args[1]() as TSymbol;
-  Value := args[2];
-
-  if not(context.FSymbols.ContainsKey(symbol.Value)) then
-      raise Exception.Create('set!: variable ' + symbol.Value + ' does not exist');
-
-  Result := Eval(Value);
-  context[symbol.Value] := Result;
 end;
 
 function TLisp._type(context : TContext; args : Ref<TList>) : Ref<TData>;
