@@ -46,8 +46,9 @@ type
   end;
 
   TList = class;
+  DataRef = Ref<TData>;
 
-  TLispListEnumerator = class(TEnumerator < Ref < TData >> )
+  TLispListEnumerator = class(TEnumerator<DataRef>)
     private
       FList : TList;
       FCurrent : Ref<TData>;
@@ -118,8 +119,6 @@ type
       class function Match(v : string) : Boolean;
   end;
 
-  DataRef = Ref<TData>;
-
   TList = class(TData)
     protected
       Items : TList<DataRef>;
@@ -174,9 +173,9 @@ type
       function Read(input : string) : Ref<TData>;
       function Eval(input : string) : Ref<TData>; overload;
 
-      //========================================================================
+      // ========================================================================
       // built-in functions
-      //========================================================================
+      // ========================================================================
 
       /// <summary>Defines a *new* variable in the current context</summary>
       function _def(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -396,10 +395,12 @@ var
 begin
   if args.Size < 3 then
       raise Exception.Create('def: not enough arguments');
-  if not(args[1]() is TSymbol) then
-      raise Exception.Create('def: ' + args[1]().ToString + ' is not a valid symbol');
 
-  symbol := Eval(args[1])() as TSymbol;
+  if args[1]() is TSymbol then
+      symbol := args[1]() as TSymbol
+  else
+      symbol := Eval(args[1])() as TSymbol;
+
   Result := Eval(args[2]);
   context[symbol.Value] := Result;
 end;
@@ -486,7 +487,7 @@ begin
   Result := CreateRef(TNothing.Create());
 end;
 
-function TLisp._quote(context: TContext; args: Ref<TList>): Ref<TData>;
+function TLisp._quote(context : TContext; args : Ref<TList>) : Ref<TData>;
 begin
   Result := args[1];
 end;
