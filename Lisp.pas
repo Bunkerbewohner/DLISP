@@ -179,12 +179,14 @@ type
       function _set(context : TContext; args : Ref<TList>) : Ref<TData>;
       function _type(context : TContext; args : Ref<TList>) : Ref<TData>;
       function _print(context : TContext; args : Ref<TList>) : Ref<TData>;
-      function __cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
+      function _quote(context : TContext; args : Ref<TList>) : Ref<TData>;
 
       function _list(context : TContext; args : Ref<TList>) : Ref<TData>;
 
       // math
       function _plus(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      function __cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
 
   end;
 
@@ -194,7 +196,7 @@ implementation
 
 function CreateRef(data : TData) : DataRef;
 begin
-  Result :=  TRef<TData>.Create(data);
+  Result := TRef<TData>.Create(data);
 end;
 
 { TLisp }
@@ -209,6 +211,7 @@ begin
   FBuiltIns.Add('type', _type);
   FBuiltIns.Add('print', _print);
   FBuiltIns.Add('list', _list);
+  FBuiltIns.Add('quote', _quote);
   FBuiltIns.Add('__cfg', __cfg);
 
   FBuiltIns.Add('+', _plus);
@@ -386,7 +389,7 @@ begin
   if not(args[1]() is TSymbol) then
       raise Exception.Create('def: ' + args[1]().ToString + ' is not a valid symbol');
 
-  symbol := args[1]() as TSymbol;
+  symbol := Eval(args[1])() as TSymbol;
   Result := Eval(args[2]);
   context[symbol.Value] := Result;
 end;
@@ -471,6 +474,11 @@ begin
   end;
 
   Result := CreateRef(TNothing.Create());
+end;
+
+function TLisp._quote(context: TContext; args: Ref<TList>): Ref<TData>;
+begin
+  Result := args[1];
 end;
 
 function TLisp._set(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -792,7 +800,7 @@ begin
   Value := '';
 end;
 
-function TNothing.ToString: string;
+function TNothing.ToString : string;
 begin
   Result := 'TNothing';
 end;
