@@ -228,11 +228,14 @@ type
       // math
       function _plus(context : TContext; args : Ref<TList>) : Ref<TData>;
 
-      /// <summary>Gets or sets DISP configuration settings</summary>
+      /// <summary>Gets or sets DLISP configuration settings</summary>
       function __cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
 
       /// <summary>if branch (if <condition> <expr-true> <expr-false>)</summary>
       function _if(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Returns first element of a list</summary>
+      function _first(context : TContext; args : Ref<TList>) : Ref<TData>;
 
   end;
 
@@ -262,6 +265,7 @@ begin
   FBuiltIns.Add('str', _str);
   FBuiltIns.Add('__cfg', __cfg);
   FBuiltIns.Add('if', _if);
+  FBuiltIns.Add('first', _first);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -517,6 +521,16 @@ begin
   // Create and save the function
   Result := CreateRef(TFunction.Create(TRef<TList>.Create(funcArgs), context));
   context[symbol.Value] := Result;
+end;
+
+function TLisp._first(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  list : TList;
+  evald : DataRef;
+begin
+  evald := Eval(args[1]);
+  list := evald() as TList;
+  Result := list[0];
 end;
 
 function TLisp._fn(context : TContext; args : Ref<TList>) : Ref<TData>;
