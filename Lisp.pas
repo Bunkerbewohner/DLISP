@@ -262,6 +262,9 @@ type
       /// <summary>Returns the last list item</summary>
       function _last(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summaryReturns the nth element of a list</summary>
+      function _nth(context : TContext; args : Ref<TList>) : Ref<TData>;
+
   end;
 
 function CreateRef(data : TData) : DataRef;
@@ -294,6 +297,7 @@ begin
   FBuiltIns.Add('rest', _rest);
   FBuiltIns.Add('last', _last);
   FBuiltIns.Add('length', _length);
+  FBuiltIns.Add('nth', _nth);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -619,6 +623,17 @@ begin
   end;
 
   Result := CreateRef(list);
+end;
+
+function TLisp._nth(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  list : TList;
+  index : TInteger;
+begin
+  list := Eval(args[1], context)() as TList;
+  index := Eval(args[2], context)() as TInteger;
+
+  Result := list[index.IntValue];
 end;
 
 function TLisp._plus(context : TContext; args : Ref<TList>) : Ref<TData>;
