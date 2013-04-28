@@ -277,6 +277,8 @@ type
       function _eq(context : TContext; args : Ref<TList>): Ref<TData>;
       function _neq(context : TContext; args : Ref<TList>): Ref<TData>;
 
+      function _not(context : TContext; args : Ref<TList>): Ref<TData>;
+
   end;
 
 function CreateRef(data : TData) : DataRef;
@@ -313,6 +315,7 @@ begin
   FBuiltIns.Add('atom?', _atom_);
   FBuiltIns.Add('=', _eq);
   FBuiltIns.Add('not=', _neq);
+  FBuiltIns.Add('not', _not);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -337,6 +340,7 @@ var
   fn : TFunction;
   i: Integer;
   data : TData;
+  fnScope : TContext;
   
 begin
   if code() is TSymbol then
@@ -372,6 +376,8 @@ begin
       end;
 
       fn := evaluated[0]() as TFunction;
+      fnScope := TContext.Create();
+      fnScope.FParent := fn.FContext;
 
       // args[0] = function name
       // args[1] = function arguments
@@ -382,21 +388,23 @@ begin
       begin
         symbol := fn.FArgs()[i - 1]() as TSymbol;
         data := evaluated[i]();
-        fn.FContext[symbol.Value] := evaluated[i];
+        fnScope[symbol.Value] := evaluated[i];
       end;
 
       // execute the function code
       for i := 2 to fn.FCode().Size - 1 do
       begin
-        Result := Eval(fn.FCode()[i], fn.FContext);
+        Result := Eval(fn.FCode()[i], fnScope);
       end;      
 
       // Clear the arguments from the context again
       for i := 1 to evaluated.Size - 1 do
       begin
         symbol := fn.FArgs()[i - 1]() as TSymbol;
-        fn.FContext.Remove(symbol.Value);
+        fnScope.Remove(symbol.Value);
       end;
+
+      fnScope.Free;
     end;
   end
   else if code() is TFunction then
@@ -614,14 +622,16 @@ function TLisp._if(context: TContext; args: Ref<TList>): Ref<TData>;
 var
   cond : Ref<TData>;
   bool : TBoolean;
+  data : TData;
 begin
-  cond := Eval(args[1]);
-  bool := cond() as TBoolean;
+  cond := Eval(args[1], context);
+  data := cond();
+  bool := data as TBoolean;
 
   if bool.BoolValue then
-    Result := Eval(args[2])
+    Result := Eval(args[2], context)
   else if args.Size > 3 then
-    Result := Eval(args[3])
+    Result := Eval(args[3], context)
   else
     Result := CreateRef(TNothing.Create()); // if no else is supplied
 end;
@@ -663,6 +673,14 @@ var
   bool : TBoolean;
 begin
   bool := _eq(context, args)() as TBoolean;
+  Result := CreateRef(TBoolean.Create(not bool.BoolValue));
+end;
+
+function TLisp._not(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  bool : TBoolean;
+begin
+  bool := Eval(args[1], context)() as TBoolean;
   Result := CreateRef(TBoolean.Create(not bool.BoolValue));
 end;
 
