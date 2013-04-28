@@ -27,6 +27,8 @@ type
       constructor Create();
       destructor Destroy(); override;
 
+      function Copy() : TData; virtual; abstract;
+
       procedure Release();
       function ToQualifiedString() : string;
   end;
@@ -35,12 +37,15 @@ type
     public
       constructor Create();
 
+      function Copy() : TData; override;
+
       function ToString : string; override;
   end;
 
   TAtom = class(TData)
     public
       constructor Create(v : string);
+      function Copy() : TData; override;
 
       function ToString : string; override;
   end;
@@ -64,12 +69,14 @@ type
   TSymbol = class(TAtom)
     public
 
+      function Copy() : TData; override;
       class function Match(v : string) : Boolean;
 
   end;
 
   TString = class(TAtom)
     public
+      function Copy() : TData; override;
       function ToString : string; override;
   end;
 
@@ -78,6 +85,7 @@ type
       BoolValue : Boolean;
 
       constructor Create(v : string);
+      function Copy() : TData; override;
 
       class function Match(v : string) : Boolean;
   end;
@@ -100,6 +108,8 @@ type
       function ToInteger() : Integer; override;
       function ToSingle() : Single; override;
 
+      function Copy() : TData; override;
+
       procedure Plus(b : TNumber); override;
 
       class function Match(v : string) : Boolean;
@@ -114,6 +124,8 @@ type
 
       function ToInteger() : Integer; override;
       function ToSingle() : Single; override;
+
+      function Copy() : TData; override;
 
       procedure Plus(b : TNumber); override;
 
@@ -136,6 +148,8 @@ type
 
       constructor Create();
       destructor Destroy(); override;
+
+      function Copy() : TData; override;
 
       function GetEnumerator : TEnumerator<DataRef>;
 
@@ -170,6 +184,8 @@ type
     public
       constructor Create(code : Ref<TList>; parentContext : TContext);
       destructor Destroy(); override;
+
+      function Copy() : TData; override;
 
       function ToString : string; override;
   end;
@@ -240,6 +256,12 @@ type
       /// <summary>Returns a list without its first element</summary>
       function _rest(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Returns the number of items in a list</summary>
+      function _length(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Returns the last list item</summary>
+      function _last(context : TContext; args : Ref<TList>) : Ref<TData>;
+
   end;
 
 function CreateRef(data : TData) : DataRef;
@@ -270,6 +292,8 @@ begin
   FBuiltIns.Add('if', _if);
   FBuiltIns.Add('first', _first);
   FBuiltIns.Add('rest', _rest);
+  FBuiltIns.Add('last', _last);
+  FBuiltIns.Add('length', _length);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -532,13 +556,13 @@ var
   list : TList;
   evald : DataRef;
 begin
-  evald := Eval(args[1]);
+  evald := Eval(args[1], context);
   list := evald() as TList;
 
   if list.Size = 0 then
     Result := CreateRef(TNothing.Create())
   else
-    Result := list[0];
+    Result := CreateRef(list[0]().Copy);
 end;
 
 function TLisp._fn(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -563,6 +587,22 @@ begin
     Result := Eval(args[3])
   else
     Result := nil; // if no else is supplied
+end;
+
+function TLisp._last(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  list : TList;
+begin
+  list := Eval(args[1], context)() as TList;
+  Result := CreateRef(list[list.Size - 1]().Copy);
+end;
+
+function TLisp._length(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  list : TList;
+begin
+  list := Eval(args[1], context)() as TList;
+  Result := CreateRef(TInteger.Create(list.Size));
 end;
 
 function TLisp._list(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -658,10 +698,10 @@ var
   res : TList;
   i: Integer;
 begin
-  list := Eval(args[1])() as TList;
+  list := Eval(args[1], context)() as TList;
   res := TList.Create();
   for i := 1 to list.Size - 1 do
-    res.Add(list[i]);
+    res.Add(CreateRef(list[i]().Copy));
 
   Result := CreateRef(res);
 end;
@@ -733,6 +773,19 @@ begin
   Items.Add(item);
 end;
 
+function TList.Copy: TData;
+var
+  item: DataRef;
+  list : TList;
+begin
+  list := TList.Create();
+  for item in Items do
+  begin
+    list.Add(CreateRef(item().Copy()));
+  end;
+  Result := list;
+end;
+
 constructor TList.Create;
 begin
   inherited;
@@ -778,6 +831,11 @@ begin
 end;
 
 { TParseString }
+
+function TAtom.Copy: TData;
+begin
+  Result := TAtom.Create(Value);
+end;
 
 constructor TAtom.Create(v : string);
 begin
@@ -852,6 +910,11 @@ begin
   IntValue := StrToInt(v);
 end;
 
+function TInteger.Copy: TData;
+begin
+  Result := TInteger.Create(IntValue);
+end;
+
 constructor TInteger.Create(v : Integer);
 begin
   IntValue := v;
@@ -887,6 +950,11 @@ begin
   FloatValue := StrToFloat(v, LispFormatSettings);
 end;
 
+function TFloat.Copy: TData;
+begin
+  Result := TFloat.Create(FloatValue);
+end;
+
 constructor TFloat.Create(v : Single);
 begin
   FloatValue := v;
@@ -916,12 +984,22 @@ end;
 
 { TSymbol }
 
+function TSymbol.Copy: TData;
+begin
+  Result := TSymbol.Create(Value);
+end;
+
 class function TSymbol.Match(v : string) : Boolean;
 begin
   Result := TRegEx.IsMatch(v, '^[\D][\S]*$');
 end;
 
 { TBoolean }
+
+function TBoolean.Copy: TData;
+begin
+  Result := TBoolean.Create(Value);
+end;
 
 constructor TBoolean.Create(v : string);
 begin
@@ -1000,6 +1078,11 @@ end;
 
 { TNothing }
 
+function TNothing.Copy: TData;
+begin
+  Result := TNothing.Create();
+end;
+
 constructor TNothing.Create;
 begin
   Value := '';
@@ -1011,6 +1094,14 @@ begin
 end;
 
 { TFunction }
+
+function TFunction.Copy: TData;
+var
+  fn : TFunction;
+begin
+  fn := TFunction.Create(FCode, FContext.FParent);
+  Result := fn;
+end;
 
 constructor TFunction.Create(code : Ref<TList>; parentContext : TContext);
 var
@@ -1048,6 +1139,11 @@ begin
 end;
 
 { TString }
+
+function TString.Copy: TData;
+begin
+  Result := TString.Create(Value);
+end;
 
 function TString.ToString: string;
 begin
