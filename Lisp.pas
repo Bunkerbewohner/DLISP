@@ -27,6 +27,8 @@ type
       constructor Create();
       destructor Destroy(); override;
 
+      function ValueEquals(b : TData) : Boolean; virtual;
+
       function Copy() : TData; virtual; abstract;
 
       procedure Release();
@@ -268,7 +270,12 @@ type
       /// <summaryReturns the nth element of a list</summary>
       function _nth(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Checks if argument is an atomic data type</summary>
       function _atom_(context : TContext; args : Ref<TList>) : Ref<TData>;
+
+      /// <summary>Compares two atomic values</summary>
+      function _eq(context : TContext; args : Ref<TList>): Ref<TData>;
+      function _neq(context : TContext; args : Ref<TList>): Ref<TData>;
 
   end;
 
@@ -304,6 +311,8 @@ begin
   FBuiltIns.Add('length', _length);
   FBuiltIns.Add('nth', _nth);
   FBuiltIns.Add('atom?', _atom_);
+  FBuiltIns.Add('=', _eq);
+  FBuiltIns.Add('not=', _neq);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -569,6 +578,16 @@ begin
   context[symbol.Value] := Result;
 end;
 
+function TLisp._eq(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  a, b : TData;
+begin
+  a := Eval(args[1], context)();
+  b := Eval(args[2], context)();
+
+  Result := CreateRef(TBoolean.Create(a.ValueEquals(b)));
+end;
+
 function TLisp._first(context: TContext; args: Ref<TList>): Ref<TData>;
 var
   list : TList;
@@ -604,7 +623,7 @@ begin
   else if args.Size > 3 then
     Result := Eval(args[3])
   else
-    Result := nil; // if no else is supplied
+    Result := CreateRef(TNothing.Create()); // if no else is supplied
 end;
 
 function TLisp._last(context: TContext; args: Ref<TList>): Ref<TData>;
@@ -637,6 +656,14 @@ begin
   end;
 
   Result := CreateRef(list);
+end;
+
+function TLisp._neq(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  bool : TBoolean;
+begin
+  bool := _eq(context, args)() as TBoolean;
+  Result := CreateRef(TBoolean.Create(not bool.BoolValue));
 end;
 
 function TLisp._nth(context: TContext; args: Ref<TList>): Ref<TData>;
@@ -1080,6 +1107,11 @@ end;
 function TData.ToQualifiedString : string;
 begin
   Result := self.ClassName + '[' + self.ToString + ']';
+end;
+
+function TData.ValueEquals(b: TData): Boolean;
+begin
+  Result := self.Value.Equals(b.Value);
 end;
 
 procedure CheckMemoryLeaks();
