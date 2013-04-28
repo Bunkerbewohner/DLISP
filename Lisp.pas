@@ -201,6 +201,9 @@ type
       /// <summary>Creates a new function</summary>
       function _fn(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Shortcut for (def <symbol> (fn ...))</summary>
+      function _defn(context : TContext; args : Ref<TList>) : Ref<TData>;
+
       /// <summary>Returns the data type of the first argument</summary>
       function _type(context : TContext; args : Ref<TList>) : Ref<TData>;
 
@@ -238,6 +241,7 @@ begin
 
   FBuiltIns := TDictionary<string, ProcBuiltIn>.Create();
   FBuiltIns.Add('def', _def);
+  FBuiltIns.Add('defn', _defn);
   FBuiltIns.Add('type', _type);
   FBuiltIns.Add('print', _print);
   FBuiltIns.Add('list', _list);
@@ -456,6 +460,27 @@ begin
       symbol := Eval(args[1], context)() as TSymbol;
 
   Result := Eval(args[2], context);
+  context[symbol.Value] := Result;
+end;
+
+function TLisp._defn(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  symbol : TSymbol;
+  funcArgs : TList;
+  d : DataRef;
+  i: Integer;
+begin
+  // symbol under which to define the function
+  symbol := args[1]() as TSymbol;
+
+  // TFunction.Create exptects basically the same arguments except the
+  // symbol in the front; so just copy the rest into a new list
+  funcArgs := TList.Create();
+  for i := 1 to args.Size-1 do
+    funcArgs.Add(args[i]);
+
+  // Create and save the function
+  Result := CreateRef(TFunction.Create(TRef<TList>.Create(funcArgs), context));
   context[symbol.Value] := Result;
 end;
 
@@ -882,7 +907,7 @@ begin
   FContext.FParent := parentContext;
 
   // (fn [p1 p2 & ps] (...) (...))
-  Assert((code[0]() is TSymbol) and (code[0]().Value = 'fn'));
+  Assert((code[0]() is TSymbol));
   Assert(code[1]() is TList);
   Assert(code.Size > 2);
 
