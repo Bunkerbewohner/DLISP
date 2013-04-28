@@ -218,6 +218,9 @@ type
       /// <summary>Creates a list of given arguments</summary>
       function _list(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Creates one string from all arguments</summary>
+      function _str(context : TContext; args : Ref<TList>) : Ref<TData>;
+
       // math
       function _plus(context : TContext; args : Ref<TList>) : Ref<TData>;
 
@@ -249,6 +252,7 @@ begin
   FBuiltIns.Add('list', _list);
   FBuiltIns.Add('quote', _quote);
   FBuiltIns.Add('fn', _fn);
+  FBuiltIns.Add('str', _str);
   FBuiltIns.Add('__cfg', __cfg);
 
   FBuiltIns.Add('+', _plus);
@@ -586,6 +590,29 @@ end;
 function TLisp._quote(context : TContext; args : Ref<TList>) : Ref<TData>;
 begin
   Result := args[1];
+end;
+
+function TLisp._str(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  res : string;
+  i: Integer;
+  ref : DataRef;
+begin
+  res := '';
+
+  for i := 1 to args.Size - 1 do
+  begin
+    if args[i]() is TString then
+      res := res + args[i]().Value
+    else
+    begin
+      ref := Eval(args[i], context);
+      if ref() is TString then res := res + ref().Value
+      else res := res + ref.ToString;
+    end;
+  end;
+
+  Result := CreateRef(TString.Create(res));
 end;
 
 function TLisp._type(context : TContext; args : Ref<TList>) : Ref<TData>;
