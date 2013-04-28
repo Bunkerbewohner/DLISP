@@ -155,6 +155,8 @@ type
 
       property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
+
+      function IsDefined(name : string) : Boolean;
   end;
 
   TFunction = class(TData)
@@ -178,14 +180,16 @@ type
       FGlobal : TContext;
       FBuiltIns : TDictionary<string, ProcBuiltIn>;
 
-      function Eval(code : Ref<TData>) : Ref<TData>; overload;
+      function Eval(code : DataRef) : DataRef; overload;
+      function Eval(code : DataRef; context : TContext) : DataRef; overload;
 
     public
       constructor Create();
       destructor Destroy(); override;
 
       function Read(input : string) : Ref<TData>;
-      function Eval(input : string) : Ref<TData>; overload;
+      function Eval(input : string) : DataRef; overload;
+      function Eval(input : string; context : TContext) : DataRef; overload;
 
       // ========================================================================
       // built-in functions
@@ -251,20 +255,27 @@ begin
   inherited;
 end;
 
-function TLisp.Eval(code : Ref<TData>) : Ref<TData>;
+function TLisp.Eval(code: DataRef) : DataRef;
+begin
+  Result := Eval(code, FGlobal);
+end;
+
+function TLisp.Eval(code : DataRef; context : TContext) : DataRef;
 var
   list, evaluated : Ref<TList>;
   opName, symbol : TSymbol;
   expr : Ref<TData>;
   fn : TFunction;
   i: Integer;
+  data : TData;
+  
 begin
   if code() is TSymbol then
   begin
     symbol := code() as TSymbol;
-    if FGlobal.FSymbols.ContainsKey(symbol.Value) then
+    if context.IsDefined(symbol.Value) then
     begin
-      Result := FGlobal[symbol.Value];
+      Result := context[symbol.Value];
     end
     else
     begin
@@ -274,15 +285,13 @@ begin
   else if code() is TList then
   begin
     list := Ref<TList>(code);
-    if not(list[0]() is TSymbol) then
-        raise Exception.Create(list[0]().ToString() + ' is not a function');
 
-    opName := list[0]() as TSymbol;
-    if FBuiltIns.ContainsKey(opName.Value) then
+    if (list[0]() is TSymbol) and (FBuiltIns.ContainsKey((list[0]() as TSymbol).Value)) then
     begin
+      opName := (list[0]() as TSymbol);
       // don't evaluate the parameters; the built-in functions must decide
       // which arguments they want quoted or evaluated
-      Result := FBuiltIns[opName.Value](FGlobal, list);
+      Result := FBuiltIns[opName.Value](context, list);
     end
     else
     begin
@@ -290,23 +299,27 @@ begin
       evaluated := TRef<TList>.Create(TList.Create());
       for i := 0 to list.Size - 1 do
       begin
-        evaluated.Add(Eval(list[i]));
+        evaluated.Add(Eval(list[i], context));
       end;
 
       fn := evaluated[0]() as TFunction;
 
       // args[0] = function name
+      // args[1] = function arguments
+      // args[2:] = function body expressions
+      
       // register arguments in context
       for i := 1 to evaluated.Size - 1 do
       begin
         symbol := fn.FArgs()[i - 1]() as TSymbol;
+        data := evaluated[i]();
         fn.FContext[symbol.Value] := evaluated[i];
       end;
 
       // execute the function code
       for i := 2 to fn.FCode().Size - 1 do
       begin
-        Result := Eval(fn.FCode()[i]);
+        Result := Eval(fn.FCode()[i], fn.FContext);
       end;      
     end;
   end
@@ -320,9 +333,14 @@ begin
   end;
 end;
 
-function TLisp.Eval(input : string) : Ref<TData>;
+function TLisp.Eval(input : string; context : TContext) : DataRef;
 begin
-  Result := Eval(read(input));
+  Result := Eval(read(input), context);
+end;
+
+function TLisp.Eval(input : string) : DataRef;
+begin
+  Result := Eval(read(input), FGlobal);
 end;
 
 function TLisp.Read(input : string) : Ref<TData>;
@@ -435,9 +453,9 @@ begin
   if args[1]() is TSymbol then
       symbol := args[1]() as TSymbol
   else
-      symbol := Eval(args[1])() as TSymbol;
+      symbol := Eval(args[1], context)() as TSymbol;
 
-  Result := Eval(args[2]);
+  Result := Eval(args[2], context);
   context[symbol.Value] := Result;
 end;
 
@@ -459,7 +477,7 @@ begin
 
   for i := 1 to args.Size - 1 do
   begin
-    list.Add(Eval(args[i]));
+    list.Add(Eval(args[i], context));
   end;
 
   Result := CreateRef(list);
@@ -524,7 +542,7 @@ var
 begin
   for i := 1 to args.Size - 1 do
   begin
-    res := Eval(args[i]);
+    res := Eval(args[i], context);
     Writeln(res.ToString);
   end;
 
@@ -541,7 +559,7 @@ var
   name : string;
   val : Ref<TData>;
 begin
-  val := Eval(args[1]);
+  val := Eval(args[1], context);
   Result := CreateRef(TString.Create(val().ClassName));
 end;
 
@@ -657,10 +675,21 @@ begin
   begin
     Result := FSymbols[name];
   end
+  else if FParent <> nil then
+  begin
+    Result := FParent.GetSymbol(name);
+  end
   else
   begin
     raise Exception.Create('Symbol "' + name + '" unknown');
   end;
+end;
+
+function TContext.IsDefined(name: string): Boolean;
+begin
+  Result := FSymbols.ContainsKey(name);
+  if (not Result) and (FParent <> Nil) then
+    Result := FParent.IsDefined(name);
 end;
 
 procedure TContext.SetSymbol(name : string; data : Ref<TData>);
