@@ -84,10 +84,13 @@ type
     public
       BoolValue : Boolean;
 
-      constructor Create(v : string);
+      constructor Create(v : string); overload;
+      constructor Create(v : Boolean); overload;
       function Copy() : TData; override;
 
       class function Match(v : string) : Boolean;
+
+      function ToString() : string; override;
   end;
 
   TNumber = class(TAtom)
@@ -265,6 +268,8 @@ type
       /// <summaryReturns the nth element of a list</summary>
       function _nth(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      function _atom_(context : TContext; args : Ref<TList>) : Ref<TData>;
+
   end;
 
 function CreateRef(data : TData) : DataRef;
@@ -298,6 +303,7 @@ begin
   FBuiltIns.Add('last', _last);
   FBuiltIns.Add('length', _length);
   FBuiltIns.Add('nth', _nth);
+  FBuiltIns.Add('atom?', _atom_);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -516,6 +522,14 @@ begin
 
   list.ConsumedCharacters := i - 1 + charsTrimmed;
   Result := Ref<TData>(list);
+end;
+
+function TLisp._atom_(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  bool : Boolean;
+begin
+  bool := args[1]() is TAtom;
+  Result := CreateRef(TBoolean.Create(bool));
 end;
 
 function TLisp._def(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -1022,12 +1036,24 @@ begin
   BoolValue := StrToBool(v);
 end;
 
+constructor TBoolean.Create(v: Boolean);
+begin
+  BoolValue := v;
+  Value := BoolToStr(v);
+end;
+
 class function TBoolean.Match(v : string) : Boolean;
 var
   lower : string;
 begin
   lower := v.ToLower;
   Result := lower.Equals('true') or lower.Equals('false');
+end;
+
+function TBoolean.ToString: string;
+begin
+  if BoolValue then Result := 'True'
+  else Result := 'False'
 end;
 
 { TData }
