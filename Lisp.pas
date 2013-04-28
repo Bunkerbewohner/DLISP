@@ -69,7 +69,8 @@ type
   end;
 
   TString = class(TAtom)
-
+    public
+      function ToString : string; override;
   end;
 
   TBoolean = class(TAtom)
@@ -157,6 +158,7 @@ type
         read GetSymbol write SetSymbol; default;
 
       function IsDefined(name : string) : Boolean;
+      procedure Remove(name : string);
   end;
 
   TFunction = class(TData)
@@ -325,6 +327,13 @@ begin
       begin
         Result := Eval(fn.FCode()[i], fn.FContext);
       end;      
+
+      // Clear the arguments from the context again
+      for i := 1 to evaluated.Size - 1 do
+      begin
+        symbol := fn.FArgs()[i - 1]() as TSymbol;
+        fn.FContext.Remove(symbol.Value);
+      end;
     end;
   end
   else if code() is TFunction then
@@ -416,7 +425,7 @@ begin
       end;
 
       // including closing quote (i - 1 + 1 = i)
-      text := input.Substring(0, i);
+      text := input.Substring(1, i - 2);
       Result := CreateRef(TString.Create(text));
       Result().ConsumedCharacters := i;
     end;
@@ -568,7 +577,7 @@ begin
   for i := 1 to args.Size - 1 do
   begin
     res := Eval(args[i], context);
-    Writeln(res.ToString);
+    Writeln(res.Value);
   end;
 
   Result := CreateRef(TNothing.Create());
@@ -715,6 +724,11 @@ begin
   Result := FSymbols.ContainsKey(name);
   if (not Result) and (FParent <> Nil) then
     Result := FParent.IsDefined(name);
+end;
+
+procedure TContext.Remove(name: string);
+begin
+  FSymbols.Remove(name);
 end;
 
 procedure TContext.SetSymbol(name : string; data : Ref<TData>);
@@ -930,6 +944,13 @@ end;
 function TFunction.ToString : string;
 begin
   Result := FCode.ToString;
+end;
+
+{ TString }
+
+function TString.ToString: string;
+begin
+  Result := '"' + Value + '"';
 end;
 
 initialization
