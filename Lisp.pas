@@ -276,7 +276,6 @@ type
       /// <summary>Compares two atomic values</summary>
       function _eq(context : TContext; args : Ref<TList>): Ref<TData>;
       function _neq(context : TContext; args : Ref<TList>): Ref<TData>;
-
       function _not(context : TContext; args : Ref<TList>): Ref<TData>;
 
   end;
@@ -406,10 +405,6 @@ begin
 
       fnScope.Free;
     end;
-  end
-  else if code() is TFunction then
-  begin
-    raise Exception.Create('call function');
   end
   else
   begin
