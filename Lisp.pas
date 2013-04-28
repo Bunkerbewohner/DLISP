@@ -237,6 +237,9 @@ type
       /// <summary>Returns first element of a list</summary>
       function _first(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>Returns a list without its first element</summary>
+      function _rest(context : TContext; args : Ref<TList>) : Ref<TData>;
+
   end;
 
 function CreateRef(data : TData) : DataRef;
@@ -266,6 +269,7 @@ begin
   FBuiltIns.Add('__cfg', __cfg);
   FBuiltIns.Add('if', _if);
   FBuiltIns.Add('first', _first);
+  FBuiltIns.Add('rest', _rest);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -530,7 +534,11 @@ var
 begin
   evald := Eval(args[1]);
   list := evald() as TList;
-  Result := list[0];
+
+  if list.Size = 0 then
+    Result := CreateRef(TNothing.Create())
+  else
+    Result := list[0];
 end;
 
 function TLisp._fn(context : TContext; args : Ref<TList>) : Ref<TData>;
@@ -642,6 +650,20 @@ end;
 function TLisp._quote(context : TContext; args : Ref<TList>) : Ref<TData>;
 begin
   Result := args[1];
+end;
+
+function TLisp._rest(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  list : TList;
+  res : TList;
+  i: Integer;
+begin
+  list := Eval(args[1])() as TList;
+  res := TList.Create();
+  for i := 1 to list.Size - 1 do
+    res.Add(list[i]);
+
+  Result := CreateRef(res);
 end;
 
 function TLisp._str(context: TContext; args: Ref<TList>): Ref<TData>;
