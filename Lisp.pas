@@ -185,6 +185,10 @@ type
       function Eval(code : DataRef) : DataRef; overload;
       function Eval(code : DataRef; context : TContext) : DataRef; overload;
 
+      /// <summary>Evaluates all expressions in the list and returns a new
+      /// list with the results.</summary>
+      function EvaluatedArgs(list : Ref<TList>; context : TContext; offset : Integer) : Ref<TList>;
+
     public
       constructor Create();
       destructor Destroy(); override;
@@ -227,6 +231,9 @@ type
       /// <summary>Gets or sets DISP configuration settings</summary>
       function __cfg(context : TContext; args : Ref<TList>) : Ref<TData>;
 
+      /// <summary>if branch (if <condition> <expr-true> <expr-false>)</summary>
+      function _if(context : TContext; args : Ref<TList>) : Ref<TData>;
+
   end;
 
 function CreateRef(data : TData) : DataRef;
@@ -254,6 +261,7 @@ begin
   FBuiltIns.Add('fn', _fn);
   FBuiltIns.Add('str', _str);
   FBuiltIns.Add('__cfg', __cfg);
+  FBuiltIns.Add('if', _if);
 
   FBuiltIns.Add('+', _plus);
 end;
@@ -353,6 +361,20 @@ end;
 function TLisp.Eval(input : string; context : TContext) : DataRef;
 begin
   Result := Eval(read(input), context);
+end;
+
+function TLisp.EvaluatedArgs(list: Ref<TList>; context : TContext; offset : Integer): Ref<TList>;
+var
+  args : TList;
+  i: Integer;
+begin
+  args := TList.Create();
+  for i := offset to list.Size - 1 do
+  begin
+    args.Add(Eval(list[i], context));
+  end;
+
+  Result := TRef<TList>.Create(args);
 end;
 
 function TLisp.Eval(input : string) : DataRef;
@@ -503,6 +525,22 @@ var
 begin
   func := TFunction.Create(args, context);
   Result := CreateRef(func);
+end;
+
+function TLisp._if(context: TContext; args: Ref<TList>): Ref<TData>;
+var
+  cond : Ref<TData>;
+  bool : TBoolean;
+begin
+  cond := Eval(args[1]);
+  bool := cond() as TBoolean;
+
+  if bool.BoolValue then
+    Result := Eval(args[2])
+  else if args.Size > 3 then
+    Result := Eval(args[3])
+  else
+    Result := nil; // if no else is supplied
 end;
 
 function TLisp._list(context : TContext; args : Ref<TList>) : Ref<TData>;
