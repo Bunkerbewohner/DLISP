@@ -90,6 +90,7 @@ var
   i: Integer;
   data : TData;
   fnScope : TContext;
+  className : string;
   
 begin
   if code() is TSymbol then
@@ -110,11 +111,17 @@ begin
     if list[0]() is TSymbol then symbol := list[0]() as TSymbol
     else symbol := Nil;
 
+    className := list[0]().ClassName;
+
     if (symbol <> nil) and (FGlobal.IsDefined(symbol.Value)) and
       (FGlobal[symbol.Value]() is TNativeFunction) then
     begin
       native := FGlobal[symbol.Value]() as TNativeFunction;
       Result := native.Apply(Self, context, list);
+    end
+    else if (list[0]() is TNativeFunction) then
+    begin
+      Result := (list[0]() as TNativeFunction).Apply(Self, context, list);
     end
     else
     begin

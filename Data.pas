@@ -150,7 +150,8 @@ type
 
       procedure Add(item : DataRef);
 
-      constructor Create();
+      constructor Create(); overload;
+      constructor Create(Items : array of DataRef); overload;
       destructor Destroy(); override;
 
       function Copy() : TData; override;
@@ -206,11 +207,17 @@ type
       function ToString : string; override;
   end;
 
-  function CreateRef(Data : TData) : DataRef;
+function ListRef(Data : TList) : DataRef;
+function CreateRef(Data : TData) : DataRef;
 
 implementation
 
 function CreateRef(Data : TData) : DataRef;
+begin
+  Result := TRef<TData>.Create(Data);
+end;
+
+function ListRef(Data : TList) : DataRef;
 begin
   Result := TRef<TData>.Create(Data);
 end;
@@ -235,6 +242,17 @@ begin
   Result := list;
 end;
 
+constructor TList.Create(Items : array of DataRef);
+var
+  I : Integer;
+begin
+  inherited Create();
+  Self.Items := TList<DataRef>.Create();
+
+  for I := 0 to Length(Items) - 1 do
+      Add(Items[I]);
+end;
+
 constructor TList.Create;
 begin
   inherited;
@@ -249,7 +267,7 @@ end;
 
 function TList.GetEnumerator : TEnumerator<Ref<TData>>;
 begin
-  Result := TLispListEnumerator.Create(self);
+  Result := TLispListEnumerator.Create(Self);
 end;
 
 function TList.GetItem(n : Integer) : Ref<TData>;
@@ -264,15 +282,15 @@ end;
 
 function TList.ToString : string;
 var
-  i : Integer;
+  I : Integer;
   DataRef : Ref<TData>;
   Data : TData;
 begin
   Result := '(';
-  for i := 0 to Items.Count - 1 do
+  for I := 0 to Items.Count - 1 do
   begin
-    if i > 0 then Result := Result + ' ';
-    DataRef := Ref<TData>(Items[i]);
+    if I > 0 then Result := Result + ' ';
+    DataRef := Ref<TData>(Items[I]);
     Data := DataRef();
     Result := Result + Data.ToString;
   end;
@@ -490,26 +508,26 @@ end;
 
 procedure TData.Release;
 begin
-  self._Release;
+  Self._Release;
 end;
 
 function TData.ToQualifiedString : string;
 begin
-  Result := self.ClassName + '[' + self.ToString + ']';
+  Result := Self.ClassName + '[' + Self.ToString + ']';
 end;
 
 function TData.ValueEquals(b : TData) : Boolean;
 begin
-  Result := self.Value.Equals(b.Value);
+  Result := Self.Value.Equals(b.Value);
 end;
 
 { TLispListEnumerator }
 
 constructor TLispListEnumerator.Create(list : TList);
 begin
-  self.FList := list;
-  self.FCurrent := nil;
-  self.FIndex := 0;
+  Self.FList := list;
+  Self.FCurrent := nil;
+  Self.FIndex := 0;
 end;
 
 function TLispListEnumerator.DoGetCurrent : Ref<TData>;
@@ -552,7 +570,7 @@ end;
 constructor TUserFunction.Create(code : Ref<TList>; parentContext : TContext);
 var
   Args, list : TList;
-  i : Integer;
+  I : Integer;
 begin
   FCode := code;
   FContext := TContext.Create(parentContext);
@@ -566,8 +584,8 @@ begin
   // FArgs := TRef<TList>.Create(code[1]() as TList);
   list := code[1]() as TList;
   Args := TList.Create();
-  for i := 1 to list.Size - 1 do
-      Args.Add(list[i]);
+  for I := 1 to list.Size - 1 do
+      Args.Add(list[I]);
 
   FArgs := TRef<TList>.Create(Args);
 end;

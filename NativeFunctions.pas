@@ -281,7 +281,7 @@ begin
         res := res + args[i]().Value
     else
     begin
-      res := res + Ref.ToString;
+      res := res + args[i]().ToString;
     end;
   end;
 
@@ -297,6 +297,49 @@ begin
   Result := CreateRef(TString.Create(val().ClassName));
 end;
 
+function __apply(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
+var
+  params, newargs, temp : TList;
+  i : Integer;
+begin
+  temp := args();
+
+  newargs := TList.Create();
+  newargs.Add(args[1]); // the function to be applied
+  
+  // arguments to the function
+  params := runtime.Eval(args[2], context)() as TList;
+  for i := 0 to params.Size - 1 do
+    newargs.Add(params[i]);  
+
+  Result := runtime.Eval(CreateRef(newargs), context);
+end;
+
+function _map(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
+var
+  maplist, col, newargs : TList;  
+  mapping : DataRef;
+  i: Integer;
+  fn : DataRef;
+  params : Ref<TList>;
+  apply, params2 : DataRef;
+begin
+  apply := CreateRef(TSymbol.Create('apply'));
+  maplist := TList.Create();
+  fn := runtime.Eval(args[1], context);
+  col := args[2]() as TList;
+  
+  for i := 0 to col.Size - 1 do
+  begin
+    newargs := TList.Create();
+    newargs.Add(fn);
+    newargs.Add(col[i]);
+    maplist.Add(runtime.Eval(CreateRef(newargs), context));
+  end;
+
+  Result := CreateRef(maplist);
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -304,6 +347,7 @@ NativeFunctionList := TList<TFunction>.Create();
 TNativeFunction.Create('quote', __quote);
 TNativeFunction.Create('def', __def);
 TNativeFunction.Create('defn', __defn);
+TNativeFunction.Create('apply', __apply);
 TNativeFunction.Create('fn', __fn);
 TNativeFunction.Create('if', __if);
 
@@ -319,6 +363,7 @@ TEvaluatingNativeFunction.Create('list', _list);
 TEvaluatingNativeFunction.Create('not=', _neq);
 TEvaluatingNativeFunction.Create('nth', _nth);
 TEvaluatingNativeFunction.Create('rest', _rest);
+TEvaluatingNativeFunction.Create('map', _map);
 
 finalization
 
