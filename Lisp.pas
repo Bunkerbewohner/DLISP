@@ -285,6 +285,8 @@ begin
   i := 2;
 
   list := TRef<TList>.Create(TList.Create());
+  if input[1] = '[' then
+    list.Add(CreateRef(TSymbol.Create('list')));
 
   while i <= Length(input) do
   begin
