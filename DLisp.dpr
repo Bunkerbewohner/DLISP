@@ -8,7 +8,9 @@ uses
   System.SysUtils,
   System.Generics.Collections,
   Lisp in 'Lisp.pas',
-  Memory in 'Memory.pas';
+  Memory in 'Memory.pas',
+  Data in 'Data.pas',
+  NativeFunctions in 'NativeFunctions.pas';
 
 var
   input : string;

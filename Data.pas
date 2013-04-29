@@ -166,7 +166,7 @@ type
       FSymbols : TDictionary<string, DataRef>;
 
       function GetSymbol(name : string) : Ref<TData>;
-      procedure SetSymbol(name : string; data : Ref<TData>);
+      procedure SetSymbol(name : string; Data : Ref<TData>);
 
     public
       constructor Create(parent : TContext);
@@ -176,12 +176,20 @@ type
         read GetSymbol write SetSymbol; default;
 
       function IsDefined(name : string) : Boolean;
+
       procedure Remove(name : string);
   end;
 
-  TFunction = class(TData)
+  TFunction = class abstract(TData)
     protected
       FContext : TContext;
+
+    public
+
+  end;
+
+  TUserFunction = class(TFunction)
+    protected
       FCode : Ref<TList>;
       FArgs : Ref<TList>;
 
@@ -189,20 +197,22 @@ type
       constructor Create(code : Ref<TList>; parentContext : TContext);
       destructor Destroy(); override;
 
-      property Context : TContext read FContext;
+      property context : TContext read FContext;
       property Args : Ref<TList> read FArgs;
-      property Code : Ref<TList> read FCode;
+      property code : Ref<TList> read FCode;
 
       function Copy() : TData; override;
 
       function ToString : string; override;
   end;
 
+  function CreateRef(Data : TData) : DataRef;
+
 implementation
 
-function CreateRef(data : TData) : DataRef;
+function CreateRef(Data : TData) : DataRef;
 begin
-  Result := TRef<TData>.Create(data);
+  Result := TRef<TData>.Create(Data);
 end;
 
 { TParseList }
@@ -212,9 +222,9 @@ begin
   Items.Add(item);
 end;
 
-function TList.Copy: TData;
+function TList.Copy : TData;
 var
-  item: DataRef;
+  item : DataRef;
   list : TList;
 begin
   list := TList.Create();
@@ -256,22 +266,22 @@ function TList.ToString : string;
 var
   i : Integer;
   DataRef : Ref<TData>;
-  data : TData;
+  Data : TData;
 begin
   Result := '(';
   for i := 0 to Items.Count - 1 do
   begin
     if i > 0 then Result := Result + ' ';
     DataRef := Ref<TData>(Items[i]);
-    data := DataRef();
-    Result := Result + data.ToString;
+    Data := DataRef();
+    Result := Result + Data.ToString;
   end;
   Result := Result + ')';
 end;
 
 { TParseString }
 
-function TAtom.Copy: TData;
+function TAtom.Copy : TData;
 begin
   Result := TAtom.Create(Value);
 end;
@@ -317,27 +327,27 @@ begin
   end;
 end;
 
-function TContext.IsDefined(name: string): Boolean;
+function TContext.IsDefined(name : string) : Boolean;
 begin
   Result := FSymbols.ContainsKey(name);
-  if (not Result) and (FParent <> Nil) then
-    Result := FParent.IsDefined(name);
+  if (not Result) and (FParent <> nil) then
+      Result := FParent.IsDefined(name);
 end;
 
-procedure TContext.Remove(name: string);
+procedure TContext.Remove(name : string);
 begin
   FSymbols.Remove(name);
 end;
 
-procedure TContext.SetSymbol(name : string; data : Ref<TData>);
+procedure TContext.SetSymbol(name : string; Data : Ref<TData>);
 begin
   if FSymbols.ContainsKey(name) then
   begin
-    FSymbols[name] := DataRef(data);
+    FSymbols[name] := DataRef(Data);
   end
   else
   begin
-    FSymbols.Add(name, DataRef(data));
+    FSymbols.Add(name, DataRef(Data));
   end;
 end;
 
@@ -349,7 +359,7 @@ begin
   IntValue := StrToInt(v);
 end;
 
-function TInteger.Copy: TData;
+function TInteger.Copy : TData;
 begin
   Result := TInteger.Create(IntValue);
 end;
@@ -389,7 +399,7 @@ begin
   FloatValue := StrToFloat(v, FormatSettings);
 end;
 
-function TFloat.Copy: TData;
+function TFloat.Copy : TData;
 begin
   Result := TFloat.Create(FloatValue);
 end;
@@ -423,7 +433,7 @@ end;
 
 { TSymbol }
 
-function TSymbol.Copy: TData;
+function TSymbol.Copy : TData;
 begin
   Result := TSymbol.Create(Value);
 end;
@@ -435,7 +445,7 @@ end;
 
 { TBoolean }
 
-function TBoolean.Copy: TData;
+function TBoolean.Copy : TData;
 begin
   Result := TBoolean.Create(Value);
 end;
@@ -446,7 +456,7 @@ begin
   BoolValue := StrToBool(v);
 end;
 
-constructor TBoolean.Create(v: Boolean);
+constructor TBoolean.Create(v : Boolean);
 begin
   BoolValue := v;
   Value := BoolToStr(v);
@@ -460,7 +470,7 @@ begin
   Result := lower.Equals('true') or lower.Equals('false');
 end;
 
-function TBoolean.ToString: string;
+function TBoolean.ToString : string;
 begin
   if BoolValue then Result := 'True'
   else Result := 'False'
@@ -488,7 +498,7 @@ begin
   Result := self.ClassName + '[' + self.ToString + ']';
 end;
 
-function TData.ValueEquals(b: TData): Boolean;
+function TData.ValueEquals(b : TData) : Boolean;
 begin
   Result := self.Value.Equals(b.Value);
 end;
@@ -514,7 +524,7 @@ end;
 
 { TNothing }
 
-function TNothing.Copy: TData;
+function TNothing.Copy : TData;
 begin
   Result := TNothing.Create();
 end;
@@ -531,18 +541,18 @@ end;
 
 { TFunction }
 
-function TFunction.Copy: TData;
+function TUserFunction.Copy : TData;
 var
-  fn : TFunction;
+  fn : TUserFunction;
 begin
-  fn := TFunction.Create(FCode, FContext.FParent);
+  fn := TUserFunction.Create(FCode, FContext.FParent);
   Result := fn;
 end;
 
-constructor TFunction.Create(code : Ref<TList>; parentContext : TContext);
+constructor TUserFunction.Create(code : Ref<TList>; parentContext : TContext);
 var
-  args, list : TList;
-  i: Integer;
+  Args, list : TList;
+  i : Integer;
 begin
   FCode := code;
   FContext := TContext.Create(parentContext);
@@ -553,40 +563,40 @@ begin
   Assert(code.Size > 2);
 
   // First argument is a list of symbols for arguments
-  //FArgs := TRef<TList>.Create(code[1]() as TList);
+  // FArgs := TRef<TList>.Create(code[1]() as TList);
   list := code[1]() as TList;
-  args := TList.Create();
+  Args := TList.Create();
   for i := 1 to list.Size - 1 do
-    args.Add(list[i]);
+      Args.Add(list[i]);
 
-  FArgs := TRef<TList>.Create(args);
+  FArgs := TRef<TList>.Create(Args);
 end;
 
-destructor TFunction.Destroy;
+destructor TUserFunction.Destroy;
 begin
   FContext.Free;
   inherited;
 end;
 
-function TFunction.ToString : string;
+function TUserFunction.ToString : string;
 begin
   Result := FCode.ToString;
 end;
 
 { TString }
 
-function TString.Copy: TData;
+function TString.Copy : TData;
 begin
   Result := TString.Create(Value);
 end;
 
-function TString.ToString: string;
+function TString.ToString : string;
 begin
   Result := '"' + Value + '"';
 end;
 
 initialization
 
-  FormatSettings := TFormatSettings.Create('en_US');
+FormatSettings := TFormatSettings.Create('en_US');
 
 end.
