@@ -145,7 +145,7 @@ begin
       // args[2:] = function body expressions
 
       // register arguments in context
-      for i := 1 to evaluated.Size - 1 do
+      for i := 1 to evaluated().Size - 1 do
       begin
         symbol := fn.Args()[i - 1]() as TSymbol;
         data := evaluated[i]();

@@ -426,6 +426,58 @@ begin
   end;
 end;
 
+function _inc(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  num : TNumber;
+  add : TInteger;
+begin
+  num := args[1]() as TNumber;
+  add := TInteger.Create(1);
+  num := num.Plus(add);
+  result := CreateRef(num);
+  add.Free;
+end;
+
+function _dec(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  num : TNumber;
+  sub : TInteger;
+begin
+  num := args[1]() as TNumber;
+  sub := TInteger.Create(1);
+  num := num.Minus(sub);
+  result := CreateRef(num);
+  sub.Free;
+end;
+
+function _filter(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  fn : TFunction;
+  fnRef : DataRef;
+  col, filtered, l : TList;
+  item, params: DataRef;
+  b : Boolean;
+  bRef : DataRef;
+  i: Integer;
+begin
+  fnRef := args[1];
+  fn := fnRef() as TFunction;
+  col := args[2]() as TList;
+  filtered := TList.Create();
+  for i := 0 to col.Size - 1 do
+  begin
+    params := CreateRef(TList.Create([fnRef, col[i]]));
+    l := params() as TList;
+    bRef := runtime.Eval(params, context);
+    if (bRef is TBoolean) and (bref as TBoolean).BoolValue then
+    begin
+      filtered.Add(col[i]);
+    end;
+  end;
+
+  Result := CreateRef(filtered);
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -452,11 +504,15 @@ TEvaluatingNativeFunction.Create('not', _not);
 TEvaluatingNativeFunction.Create('nth', _nth);
 TEvaluatingNativeFunction.Create('rest', _rest);
 TEvaluatingNativeFunction.Create('map', _map);
+TEvaluatingNativeFunction.Create('filter', _filter);
 
 TEvaluatingNativeFunction.Create('+', _plus);
 TEvaluatingNativeFunction.Create('-', _minus);
 TEvaluatingNativeFunction.Create('/', _divide);
 TEvaluatingNativeFunction.Create('*', _multiply);
+TEvaluatingNativeFunction.Create('inc', _inc);
+TEvaluatingNativeFunction.Create('dec', _dec);
+
 
 finalization
 

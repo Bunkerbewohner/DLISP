@@ -399,14 +399,14 @@ begin
   Value := IntToStr(v);
 end;
 
-function TInteger.Divide(b: TNumber): TNumber;
+function TInteger.Divide(b : TNumber) : TNumber;
 begin
   if b is TFloat then
-    Result := TFloat.Create(IntValue / (b as TFloat).FloatValue)
+      Result := TFloat.Create(IntValue / (b as TFloat).FloatValue)
   else if b is TInteger then
-    Result := TInteger.Create(IntValue div (b as TInteger).IntValue)
+      Result := TInteger.Create(IntValue div (b as TInteger).IntValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
 class function TInteger.Match(v : string) : Boolean;
@@ -414,34 +414,34 @@ begin
   Result := TRegEx.IsMatch(v, '^\d+$');
 end;
 
-function TInteger.Minus(b: TNumber): TNumber;
+function TInteger.Minus(b : TNumber) : TNumber;
 begin
   if b is TFloat then
-    Result := TFloat.Create(IntValue - (b as TFloat).FloatValue)
+      Result := TFloat.Create(IntValue - (b as TFloat).FloatValue)
   else if b is TInteger then
-    Result := TInteger.Create(IntValue - (b as TInteger).IntValue)
+      Result := TInteger.Create(IntValue - (b as TInteger).IntValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
-function TInteger.Multiply(b: TNumber): TNumber;
+function TInteger.Multiply(b : TNumber) : TNumber;
 begin
   if b is TFloat then
-    Result := TFloat.Create(IntValue * (b as TFloat).FloatValue)
+      Result := TFloat.Create(IntValue * (b as TFloat).FloatValue)
   else if b is TInteger then
-    Result := TInteger.Create(IntValue * (b as TInteger).IntValue)
+      Result := TInteger.Create(IntValue * (b as TInteger).IntValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
-function TInteger.Plus(b: TNumber): TNumber;
+function TInteger.Plus(b : TNumber) : TNumber;
 begin
   if b is TFloat then
-    Result := TFloat.Create(IntValue + (b as TFloat).FloatValue)
+      Result := TFloat.Create(IntValue + (b as TFloat).FloatValue)
   else if b is TInteger then
-    Result := TInteger.Create(IntValue + (b as TInteger).IntValue)
+      Result := TInteger.Create(IntValue + (b as TInteger).IntValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
 function TInteger.ToInteger : Integer;
@@ -473,14 +473,14 @@ begin
   Value := FloatToStr(v, FormatSettings);
 end;
 
-function TFloat.Divide(b: TNumber): TNumber;
+function TFloat.Divide(b : TNumber) : TNumber;
 begin
   if b is TInteger then
-    Result := TFloat.Create(FloatValue / ((b as TInteger).IntValue))
+      Result := TFloat.Create(FloatValue / ((b as TInteger).IntValue))
   else if b is TFloat then
-    Result := TFloat.Create(FloatValue / (b as TFloat).FloatValue)
+      Result := TFloat.Create(FloatValue / (b as TFloat).FloatValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
 class function TFloat.Match(v : string) : Boolean;
@@ -488,34 +488,34 @@ begin
   Result := TRegEx.IsMatch(v, '^\d+\.\d+');
 end;
 
-function TFloat.Minus(b: TNumber): TNumber;
+function TFloat.Minus(b : TNumber) : TNumber;
 begin
   if b is TInteger then
-    Result := TFloat.Create(FloatValue - (b as TInteger).IntValue)
+      Result := TFloat.Create(FloatValue - (b as TInteger).IntValue)
   else if b is TFloat then
-    Result := TFloat.Create(FloatValue - (b as TFloat).FloatValue)
+      Result := TFloat.Create(FloatValue - (b as TFloat).FloatValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
-function TFloat.Multiply(b: TNumber): TNumber;
+function TFloat.Multiply(b : TNumber) : TNumber;
 begin
   if b is TInteger then
-    Result := TFloat.Create(FloatValue * (b as TInteger).IntValue)
+      Result := TFloat.Create(FloatValue * (b as TInteger).IntValue)
   else if b is TFloat then
-    Result := TFloat.Create(FloatValue * (b as TFloat).FloatValue)
+      Result := TFloat.Create(FloatValue * (b as TFloat).FloatValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
-function TFloat.Plus(b: TNumber): TNumber;
+function TFloat.Plus(b : TNumber) : TNumber;
 begin
   if b is TInteger then
-    Result := TFloat.Create(FloatValue + (b as TInteger).IntValue)
+      Result := TFloat.Create(FloatValue + (b as TInteger).IntValue)
   else if b is TFloat then
-    Result := TFloat.Create(FloatValue + (b as TFloat).FloatValue)
+      Result := TFloat.Create(FloatValue + (b as TFloat).FloatValue)
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
 function TFloat.ToInteger : Integer;
