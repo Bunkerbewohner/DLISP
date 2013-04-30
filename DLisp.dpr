@@ -10,7 +10,8 @@ uses
   Lisp in 'Lisp.pas',
   Memory in 'Memory.pas',
   Data in 'Data.pas',
-  NativeFunctions in 'NativeFunctions.pas';
+  NativeFunctions in 'NativeFunctions.pas',
+  Common in 'Common.pas';
 
 var
   input : string;
@@ -28,10 +29,17 @@ begin
         ReadLn(input);
         if input <> '' then
         begin
-          res := Lisp.Eval(input);
-          if not (res() is TNothing) then
-          begin
-            WriteLn(res.ToString);
+          try
+            res := Lisp.Eval(input);
+            if not (res() is TNothing) then
+            begin
+              WriteLn(res.ToString);
+            end;
+          except
+            on e : Exception do
+            begin
+              WriteLn('Error: ' + e.Message);
+            end;
           end;
         end;
       until input = '';

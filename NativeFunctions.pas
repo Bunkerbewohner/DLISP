@@ -305,39 +305,125 @@ begin
   temp := args();
 
   newargs := TList.Create();
-  newargs.Add(args[1]); // the function to be applied
-  
+  newargs.Add(runtime.Eval(args[1], context)); // the function to be applied
+
   // arguments to the function
-  params := runtime.Eval(args[2], context)() as TList;
-  for i := 0 to params.Size - 1 do
-    newargs.Add(params[i]);  
+  if args.Size > 2 then
+  begin
+    params := runtime.Eval(args[2], context)() as TList;
+    for i := 0 to params.Size - 1 do
+        newargs.Add(params[i]);
+  end;
 
   Result := runtime.Eval(CreateRef(newargs), context);
 end;
 
 function _map(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
-  maplist, col, newargs : TList;  
+  maplist, col, newargs : TList;
   mapping : DataRef;
-  i: Integer;
-  fn : DataRef;
+  i : Integer;
+  Fn : DataRef;
   params : Ref<TList>;
-  apply, params2 : DataRef;
+  Apply, params2 : DataRef;
 begin
-  apply := CreateRef(TSymbol.Create('apply'));
+  Apply := CreateRef(TSymbol.Create('apply'));
   maplist := TList.Create();
-  fn := runtime.Eval(args[1], context);
+  Fn := runtime.Eval(args[1], context);
   col := args[2]() as TList;
-  
+
   for i := 0 to col.Size - 1 do
   begin
     newargs := TList.Create();
-    newargs.Add(fn);
+    newargs.Add(Fn);
     newargs.Add(col[i]);
     maplist.Add(runtime.Eval(CreateRef(newargs), context));
   end;
 
   Result := CreateRef(maplist);
+end;
+
+function _plus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  opA, opB : DataRef;
+  test : Boolean;
+begin
+  opA := args[1];
+  opB := args[2];
+
+  if (opA() is TNumber) and (opB() is TNumber) then
+  begin
+    Result := CreateRef((opA() as TNumber).Plus(opB() as TNumber));
+  end
+  else
+  begin
+    raise Exception.Create('Unsupported operand');
+  end;
+end;
+
+function _minus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  opA, opB : DataRef;
+  test : Boolean;
+begin
+  opA := args[1];
+  opB := args[2];
+
+  if (opA() is TNumber) and (opB() is TNumber) then
+  begin
+    Result := CreateRef((opA() as TNumber).Minus(opB() as TNumber));
+  end
+  else
+  begin
+    raise Exception.Create('Unsupported operand');
+  end;
+end;
+
+function _multiply(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  opA, opB : DataRef;
+  test : Boolean;
+begin
+  opA := args[1];
+  opB := args[2];
+
+  if (opA() is TNumber) and (opB() is TNumber) then
+  begin
+    Result := CreateRef((opA() as TNumber).Multiply(opB() as TNumber));
+  end
+  else
+  begin
+    raise Exception.Create('Unsupported operand');
+  end;
+end;
+
+function _divide(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  opA, opB : DataRef;
+  test : Boolean;
+begin
+  opA := args[1];
+  opB := args[2];
+
+  if (opA() is TNumber) and (opB() is TNumber) then
+  begin
+    Result := CreateRef((opA() as TNumber).Divide(opB() as TNumber));
+  end
+  else
+  begin
+    raise Exception.Create('Unsupported operand');
+  end;
+end;
+
+function __do(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  ops : TList;
+  i : Integer;
+begin
+  for i := 1 to args.Size - 1 do
+  begin
+    Result := runtime.Eval(args[i], context);
+  end;
 end;
 
 initialization
@@ -350,6 +436,7 @@ TNativeFunction.Create('defn', __defn);
 TNativeFunction.Create('apply', __apply);
 TNativeFunction.Create('fn', __fn);
 TNativeFunction.Create('if', __if);
+TNativeFunction.Create('do', __do);
 
 TEvaluatingNativeFunction.Create('print', _print);
 TEvaluatingNativeFunction.Create('type', _type);
@@ -361,9 +448,15 @@ TEvaluatingNativeFunction.Create('last', _last);
 TEvaluatingNativeFunction.Create('length', _length);
 TEvaluatingNativeFunction.Create('list', _list);
 TEvaluatingNativeFunction.Create('not=', _neq);
+TEvaluatingNativeFunction.Create('not', _not);
 TEvaluatingNativeFunction.Create('nth', _nth);
 TEvaluatingNativeFunction.Create('rest', _rest);
 TEvaluatingNativeFunction.Create('map', _map);
+
+TEvaluatingNativeFunction.Create('+', _plus);
+TEvaluatingNativeFunction.Create('-', _minus);
+TEvaluatingNativeFunction.Create('/', _divide);
+TEvaluatingNativeFunction.Create('*', _multiply);
 
 finalization
 

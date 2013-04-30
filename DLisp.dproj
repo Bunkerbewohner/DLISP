@@ -104,6 +104,7 @@
         <DCCReference Include="Memory.pas"/>
         <DCCReference Include="Data.pas"/>
         <DCCReference Include="NativeFunctions.pas"/>
+        <DCCReference Include="Common.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
