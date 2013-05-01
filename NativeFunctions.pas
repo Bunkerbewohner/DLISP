@@ -510,6 +510,82 @@ begin
   Result := CreateRef(TBoolean.Create(args[1]() is TNothing));
 end;
 
+function _less(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  a, b, num : TNumber;
+  i : Integer;
+begin
+  if (args[1]() is TNumber) and (args[2]() is TNumber) then
+  begin
+    a := args[1]() as TNumber;
+    b := args[2]() as TNumber;
+    num := a.Compare(b);
+    i := (num as TInteger).IntValue;
+    num.Free;
+    if i < 0 then Result := CreateRef(TBoolean.Create(True))
+    else Result := CreateRef(TBoolean.Create(False));
+  end
+  else
+    raise Exception.Create('unsupported operand');
+end;
+
+function _lessorequal(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  a, b, num : TNumber;
+  i : Integer;
+begin
+  if (args[1]() is TNumber) and (args[2]() is TNumber) then
+  begin
+    a := args[1]() as TNumber;
+    b := args[2]() as TNumber;
+    num := a.Compare(b);
+    i := (num as TInteger).IntValue;
+    num.Free;
+    if i <= 0 then Result := CreateRef(TBoolean.Create(True))
+    else Result := CreateRef(TBoolean.Create(False));
+  end
+  else
+    raise Exception.Create('unsupported operand');
+end;
+
+function _greater(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  i : Integer;
+  a, b, num : TNumber;
+begin
+  if (args[1]() is TNumber) and (args[2]() is TNumber) then
+  begin
+    a := args[1]() as TNumber;
+    b := args[2]() as TNumber;
+    num := a.Compare(b);
+    i := (num as TInteger).IntValue;
+    num.Free;
+    if i > 0 then Result := CreateRef(TBoolean.Create(True))
+    else Result := CreateRef(TBoolean.Create(False));
+  end
+  else
+    raise Exception.Create('unsupported operand');
+end;
+
+function _greaterorequal(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  i : Integer;
+  a, b, num : TNumber;
+begin
+  if (args[1]() is TNumber) and (args[2]() is TNumber) then
+  begin
+    a := args[1]() as TNumber;
+    b := args[2]() as TNumber;
+    num := a.Compare(b);
+    i := (num as TInteger).IntValue;
+    num.Free;
+    if i >= 0 then Result := CreateRef(TBoolean.Create(True))
+    else Result := CreateRef(TBoolean.Create(False));
+  end
+  else
+    raise Exception.Create('unsupported operand');
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -546,6 +622,10 @@ TEvaluatingNativeFunction.Create('/', _divide);
 TEvaluatingNativeFunction.Create('*', _multiply);
 TEvaluatingNativeFunction.Create('inc', _inc);
 TEvaluatingNativeFunction.Create('dec', _dec);
+TEvaluatingNativeFunction.Create('<', _less);
+TEvaluatingNativeFunction.Create('<=', _lessorequal);
+TEvaluatingNativeFunction.Create('>', _greater);
+TEvaluatingNativeFunction.Create('>=', _greaterorequal);
 
 
 finalization

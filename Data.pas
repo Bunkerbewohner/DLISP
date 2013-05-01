@@ -103,6 +103,8 @@ type
       function Minus(b : TNumber) : TNumber; virtual; abstract;
       function Multiply(b : TNumber) : TNumber; virtual; abstract;
       function Divide(b : TNumber) : TNumber; virtual; abstract;
+
+      function Compare(b : TNumber) : TNumber; virtual; abstract;
   end;
 
   TInteger = class(TNumber)
@@ -121,6 +123,8 @@ type
       function Minus(b : TNumber) : TNumber; override;
       function Multiply(b : TNumber) : TNumber; override;
       function Divide(b : TNumber) : TNumber; override;
+
+      function Compare(b : TNumber) : TNumber; override;
 
       class function Match(v : string) : Boolean;
   end;
@@ -141,6 +145,8 @@ type
       function Minus(b : TNumber) : TNumber; override;
       function Multiply(b : TNumber) : TNumber; override;
       function Divide(b : TNumber) : TNumber; override;
+
+      function Compare(b : TNumber) : TNumber; override;
 
       class function Match(v : string) : Boolean;
   end;
@@ -405,6 +411,20 @@ begin
   IntValue := StrToInt(v);
 end;
 
+function TInteger.Compare(b: TNumber): TNumber;
+var
+  i : Integer;
+begin
+  if b is TInteger then
+    i := Sign(IntValue - (b as TInteger).IntValue)
+  else if b is TFloat then
+    i := Sign(IntValue - (b as TFloat).FloatValue)
+  else
+    raise Exception.Create('unsupported operand');
+
+  Result := TInteger.Create(i);
+end;
+
 function TInteger.Copy : TData;
 begin
   Result := TInteger.Create(IntValue);
@@ -428,7 +448,7 @@ end;
 
 class function TInteger.Match(v : string) : Boolean;
 begin
-  Result := TRegEx.IsMatch(v, '^\d+$');
+  Result := TRegEx.IsMatch(v, '^[-]?\d+$');
 end;
 
 function TInteger.Minus(b : TNumber) : TNumber;
@@ -479,6 +499,20 @@ begin
   FloatValue := StrToFloat(v, FormatSettings);
 end;
 
+function TFloat.Compare(b: TNumber): TNumber;
+var
+  i : Integer;
+begin
+  if b is TInteger then
+    i := Sign(FloatValue - (b as TInteger).IntValue)
+  else if b is TFloat then
+    i := Sign(FloatValue - (b as TFloat).FloatValue)
+  else
+    raise Exception.Create('unsupported operand');
+
+  Result := TInteger.Create(i);
+end;
+
 function TFloat.Copy : TData;
 begin
   Result := TFloat.Create(FloatValue);
@@ -502,7 +536,7 @@ end;
 
 class function TFloat.Match(v : string) : Boolean;
 begin
-  Result := TRegEx.IsMatch(v, '^\d+\.\d+');
+  Result := TRegEx.IsMatch(v, '^[-]?\d+\.\d+');
 end;
 
 function TFloat.Minus(b : TNumber) : TNumber;
