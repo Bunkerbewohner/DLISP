@@ -8,7 +8,7 @@ uses
   SysUtils,
   Memory,
   System.Generics.Collections,
-  System.RegularExpressions;
+  System.RegularExpressions, Math;
 
 var
   FormatSettings : TFormatSettings;
@@ -159,6 +159,8 @@ type
 
       procedure Add(item : DataRef);
 
+      function ValueEquals(b : TData) : Boolean; override;
+
       constructor Create(); overload;
       constructor Create(Items : array of DataRef); overload;
       destructor Destroy(); override;
@@ -306,6 +308,21 @@ begin
     Result := Result + Data.ToString;
   end;
   Result := Result + ')';
+end;
+
+function TList.ValueEquals(b: TData): Boolean;
+var
+  other : TList;
+  i: Integer;
+begin
+  other := b as TList;
+  Result := True;
+
+  for i := 0 to Min(Size - 1, other.Size - 1) do
+  begin
+    if not Items[i]().ValueEquals(other[i]()) then
+      Exit(False);
+  end;
 end;
 
 { TParseString }

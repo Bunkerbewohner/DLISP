@@ -67,6 +67,8 @@ begin
   begin
     self.RegisterFunction(fn);
   end;
+
+  FGlobal['nil'] := CreateRef(TNothing.Create());
 end;
 
 destructor TLisp.Destroy;

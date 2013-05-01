@@ -505,6 +505,11 @@ begin
   Result := CreateRef(filtered);
 end;
 
+function _nil_(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+begin
+  Result := CreateRef(TBoolean.Create(args[1]() is TNothing));
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -533,6 +538,7 @@ TEvaluatingNativeFunction.Create('nth', _nth);
 TEvaluatingNativeFunction.Create('rest', _rest);
 TEvaluatingNativeFunction.Create('map', _map);
 TEvaluatingNativeFunction.Create('filter', _filter);
+TEvaluatingNativeFunction.Create('nil?', _nil_);
 
 TEvaluatingNativeFunction.Create('+', _plus);
 TEvaluatingNativeFunction.Create('-', _minus);
