@@ -103,6 +103,33 @@ begin
   context[symbol.Value] := Result;
 end;
 
+function __let(runtime : TRuntime; context : TContext; args : Ref<TList>) : DataRef;
+var
+  bindings : TList;
+  subcontext : TContext;
+  i: Integer;
+  symbol : TSymbol;
+  exp : DataRef;
+  temp : TData;
+begin
+  bindings := args[1]() as TList;
+  subcontext := TContext.Create(context);
+
+  for i := 0 to (bindings.Size div 2) - 1 do
+  begin
+    symbol := bindings[1 + 2 * i]() as TSymbol;
+    exp := runtime.Eval(bindings[1 + 2 * i + 1], subcontext);
+    subcontext[symbol.Value] := exp;
+  end;
+
+  for i := 2 to args.Size - 1 do
+  begin
+    Result := runtime.Eval(args[i], subcontext);
+  end;
+
+  subcontext.Free;
+end;
+
 function _atom_(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   bool : Boolean;
@@ -489,6 +516,7 @@ TNativeFunction.Create('apply', __apply);
 TNativeFunction.Create('fn', __fn);
 TNativeFunction.Create('if', __if);
 TNativeFunction.Create('do', __do);
+TNativeFunction.Create('let', __let);
 
 TEvaluatingNativeFunction.Create('print', _print);
 TEvaluatingNativeFunction.Create('type', _type);
