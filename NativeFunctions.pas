@@ -586,6 +586,50 @@ begin
     raise Exception.Create('unsupported operand');
 end;
 
+function __and(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  b : Boolean;
+  temp : DataRef;
+  expr : TData;
+  i: Integer;
+begin
+  b := True;
+  for i := 1 to args.Size - 1 do
+  begin
+    temp := runtime.Eval(args[i], context);
+    expr := temp();
+    if (not (expr is TBoolean)) or (not (expr as TBoolean).BoolValue) then
+    begin
+      b := False;
+      break;
+    end;
+  end;
+
+  Result := CreateRef(TBoolean.Create(b));
+end;
+
+function __or(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  b : Boolean;
+  temp : DataRef;
+  expr : TData;
+  i: Integer;
+begin
+  b := False;
+  for i := 1 to args.Size - 1 do
+  begin
+    temp := runtime.Eval(args[i], context);
+    expr := temp();
+    if (expr is TBoolean) and (expr as TBoolean).BoolValue then
+    begin
+      b := True;
+      break;
+    end;
+  end;
+
+  Result := CreateRef(TBoolean.Create(b));
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -598,6 +642,8 @@ TNativeFunction.Create('fn', __fn);
 TNativeFunction.Create('if', __if);
 TNativeFunction.Create('do', __do);
 TNativeFunction.Create('let', __let);
+TNativeFunction.Create('and', __and);
+TNativeFunction.Create('or', __or);
 
 TEvaluatingNativeFunction.Create('print', _print);
 TEvaluatingNativeFunction.Create('type', _type);
