@@ -11,3 +11,5 @@ __history
 bin/*
 
 /.project
+scripts/
+*.tvsconfig

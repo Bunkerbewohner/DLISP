@@ -67,7 +67,10 @@ begin
     Exit(False);
   end;
 
-  // Just
+  // Wrap everything into a do statement and evaluate all expressions in the file
+  // in the module context
+  text := '(do ' + text + ')';
+  runtime.Eval(text, FContext);
 
   Result := True;
 end;

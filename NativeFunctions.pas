@@ -643,6 +643,21 @@ begin
   Result := CreateRef(TNothing.Create());
 end;
 
+function _read(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  arg1 : DataRef;
+  text : Data.TString;
+begin
+  Assert(args.Size = 2);
+  text := args[1]() as Data.TString;
+  Result := runtime.Read(text.Value);
+end;
+
+function _eval(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+begin
+  Result := runtime.Eval(args[1], context);
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -659,6 +674,8 @@ TNativeFunction.Create('and', __and);
 TNativeFunction.Create('or', __or);
 TNativeFunction.Create('comment', __comment);
 
+TEvaluatingNativeFunction.Create('read', _read);
+TEvaluatingNativeFunction.Create('eval', _eval);
 TEvaluatingNativeFunction.Create('print', _print);
 TEvaluatingNativeFunction.Create('type', _type);
 TEvaluatingNativeFunction.Create('str', _str);

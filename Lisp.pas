@@ -35,7 +35,7 @@ type
       constructor Create();
       destructor Destroy(); override;
 
-      function Read(input : string) : Ref<TData>;
+      function Read(input : string) : Ref<TData>; override;
 
       function Eval(code : DataRef; context : TContext) : DataRef; override;
       function Eval(input : string; context : TContext) : DataRef; overload; override;
