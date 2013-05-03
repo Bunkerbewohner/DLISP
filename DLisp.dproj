@@ -105,6 +105,7 @@
         <DCCReference Include="Data.pas"/>
         <DCCReference Include="NativeFunctions.pas"/>
         <DCCReference Include="Common.pas"/>
+        <DCCReference Include="Modules.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

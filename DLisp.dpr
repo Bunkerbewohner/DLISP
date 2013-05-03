@@ -11,7 +11,8 @@ uses
   Memory in 'Memory.pas',
   Data in 'Data.pas',
   NativeFunctions in 'NativeFunctions.pas',
-  Common in 'Common.pas';
+  Common in 'Common.pas',
+  Modules in 'Modules.pas';
 
 var
   input : string;
@@ -30,7 +31,7 @@ begin
         if input <> '' then
         begin
           try
-            res := Lisp.Eval(input);
+            res := Lisp.Eval(input, Lisp.GlobalContext);
             if not (res() is TNothing) then
             begin
               WriteLn(res.ToString);

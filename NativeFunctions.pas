@@ -372,74 +372,82 @@ end;
 
 function _plus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  opA, opB : DataRef;
-  test : Boolean;
+  number, temp : TNumber;
+  i: Integer;
 begin
-  opA := args[1];
-  opB := args[2];
+  Assert(args.Size >= 3);
+  Assert(args[1]() is TNumber);
 
-  if (opA() is TNumber) and (opB() is TNumber) then
+  number := args[1]() as TNumber;
+  for i := 2 to args.Size - 1 do
   begin
-    Result := CreateRef((opA() as TNumber).Plus(opB() as TNumber));
-  end
-  else
-  begin
-    raise Exception.Create('Unsupported operand');
+    Assert(args[i]() is TNumber);
+    temp := number;
+    number := number.Plus(args[i]() as TNumber);
+    if i > 2 then FreeAndNil(temp);
   end;
+
+  Result := CreateRef(number);
 end;
 
 function _minus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  opA, opB : DataRef;
-  test : Boolean;
+  number, temp : TNumber;
+  i: Integer;
 begin
-  opA := args[1];
-  opB := args[2];
+  Assert(args.Size >= 3);
+  Assert(args[1]() is TNumber);
 
-  if (opA() is TNumber) and (opB() is TNumber) then
+  number := args[1]() as TNumber;
+  for i := 2 to args.Size - 1 do
   begin
-    Result := CreateRef((opA() as TNumber).Minus(opB() as TNumber));
-  end
-  else
-  begin
-    raise Exception.Create('Unsupported operand');
+    Assert(args[i]() is TNumber);
+    temp := number;
+    number := number.Minus(args[i]() as TNumber);
+    if i > 2 then FreeAndNil(temp);
   end;
+
+  Result := CreateRef(number);
 end;
 
 function _multiply(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  opA, opB : DataRef;
-  test : Boolean;
+  number, temp : TNumber;
+  i: Integer;
 begin
-  opA := args[1];
-  opB := args[2];
+  Assert(args.Size >= 3);
+  Assert(args[1]() is TNumber);
 
-  if (opA() is TNumber) and (opB() is TNumber) then
+  number := args[1]() as TNumber;
+  for i := 2 to args.Size - 1 do
   begin
-    Result := CreateRef((opA() as TNumber).Multiply(opB() as TNumber));
-  end
-  else
-  begin
-    raise Exception.Create('Unsupported operand');
+    Assert(args[i]() is TNumber);
+    temp := number;
+    number := number.Multiply(args[i]() as TNumber);
+    if i > 2 then FreeAndNil(temp);
   end;
+
+  Result := CreateRef(number);
 end;
 
 function _divide(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  opA, opB : DataRef;
-  test : Boolean;
+  number, temp : TNumber;
+  i: Integer;
 begin
-  opA := args[1];
-  opB := args[2];
+  Assert(args.Size >= 3);
+  Assert(args[1]() is TNumber);
 
-  if (opA() is TNumber) and (opB() is TNumber) then
+  number := args[1]() as TNumber;
+  for i := 2 to args.Size - 1 do
   begin
-    Result := CreateRef((opA() as TNumber).Divide(opB() as TNumber));
-  end
-  else
-  begin
-    raise Exception.Create('Unsupported operand');
+    Assert(args[i]() is TNumber);
+    temp := number;
+    number := number.Divide(args[i]() as TNumber);
+    if i > 2 then FreeAndNil(temp);
   end;
+
+  Result := CreateRef(number);
 end;
 
 function __do(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -630,6 +638,11 @@ begin
   Result := CreateRef(TBoolean.Create(b));
 end;
 
+function __comment(runtime : TRuntime; context : TContext; args : Listref) : DataRef;
+begin
+  Result := CreateRef(TNothing.Create());
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -644,6 +657,7 @@ TNativeFunction.Create('do', __do);
 TNativeFunction.Create('let', __let);
 TNativeFunction.Create('and', __and);
 TNativeFunction.Create('or', __or);
+TNativeFunction.Create('comment', __comment);
 
 TEvaluatingNativeFunction.Create('print', _print);
 TEvaluatingNativeFunction.Create('type', _type);

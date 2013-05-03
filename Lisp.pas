@@ -37,9 +37,7 @@ type
 
       function Read(input : string) : Ref<TData>;
 
-      function Eval(code : DataRef) : DataRef; overload;
-      function Eval(code : DataRef; context : TContext) : DataRef; overload; override;
-      function Eval(input : string) : DataRef; overload;
+      function Eval(code : DataRef; context : TContext) : DataRef; override;
       function Eval(input : string; context : TContext) : DataRef; overload; override;
 
       procedure RegisterFunction(fn : TFunction);
@@ -75,11 +73,6 @@ destructor TLisp.Destroy;
 begin
   FGlobal.Free;
   inherited;
-end;
-
-function TLisp.Eval(code: DataRef) : DataRef;
-begin
-  Result := Eval(code, FGlobal);
 end;
 
 function TLisp.Eval(code : DataRef; context : TContext) : DataRef;
@@ -200,11 +193,6 @@ begin
   Result := FGlobal;
 end;
 
-function TLisp.Eval(input : string) : DataRef;
-begin
-  Result := Eval(read(input), FGlobal);
-end;
-
 function TLisp.Read(input : string) : Ref<TData>;
 var
   i, j : Integer;
@@ -228,9 +216,25 @@ var
 
 begin
   text := input.Trim;
+
+  // remove all comments
+  text := TRegEx.Replace(text, ';.*$', '');
+
   charsTrimmed := input.Length - text.Length;
   input := text;
-  if Length(input) = 0 then Exit(nil);
+  if Length(text) = 0 then Exit(CreateRef(TNothing.Create));
+
+  if TRegEx.IsMatch(input, '^\s*;') then
+  begin
+    for i := 1 to Length(input) - 1 do
+    begin
+      if input[i] = ';' then break;
+    end;
+
+    Result := CreateRef(TNothing.Create());
+    Result().ConsumedCharacters := i;
+    Exit;
+  end;
 
   // check for atom
   if (input[1] <> '(') and (input[1] <> '[') and (input[1] <> '{') then
@@ -300,7 +304,8 @@ begin
 
     item := read(input.Substring(i - 1));
     i := i + item.ConsumedCharacters;
-    list.Add(item);
+    if not (item is TNothing) then
+      list.Add(item);
   end;
 
   list.ConsumedCharacters := i - 1 + charsTrimmed;
