@@ -658,6 +658,34 @@ begin
   Result := runtime.Eval(args[1], context);
 end;
 
+// (foreach <symbol> [in] <list> <expr>)
+function __foreach(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  c : TContext;
+  s : TSymbol;
+  item, expr : DataRef;
+  list : TList;
+  offset, i : Integer;
+begin
+  s := args[1]() as TSymbol;
+  offset := 0;
+  if (args[2]() is TSymbol) and ((args[2]() as TSymbol).Value = 'in') then
+    offset := 1;
+
+  list := runtime.Eval(args[2 + offset], context)() as TList;
+  expr := args[3 + offset];
+  c := TContext.Create(context);
+
+  for i := 0 to list.Size - 1 do
+  begin
+    c[s.Value] := list[i];
+    runtime.Eval(expr, c);
+  end;
+
+  Result := CreateRef(TNothing.Create);
+  c.Free;
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -673,6 +701,7 @@ TNativeFunction.Create('let', __let);
 TNativeFunction.Create('and', __and);
 TNativeFunction.Create('or', __or);
 TNativeFunction.Create('comment', __comment);
+TNativeFunction.Create('foreach', __foreach);
 
 TEvaluatingNativeFunction.Create('read', _read);
 TEvaluatingNativeFunction.Create('eval', _eval);

@@ -224,18 +224,6 @@ begin
   input := text;
   if Length(text) = 0 then Exit(CreateRef(TNothing.Create));
 
-  if TRegEx.IsMatch(input, '^\s*;') then
-  begin
-    for i := 1 to Length(input) - 1 do
-    begin
-      if input[i] = ';' then break;
-    end;
-
-    Result := CreateRef(TNothing.Create());
-    Result().ConsumedCharacters := i;
-    Exit;
-  end;
-
   // check for atom
   if (input[1] <> '(') and (input[1] <> '[') and (input[1] <> '{') then
   begin
