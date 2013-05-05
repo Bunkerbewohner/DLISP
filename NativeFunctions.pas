@@ -455,6 +455,12 @@ var
   ops : TList;
   i : Integer;
 begin
+  if args.Size = 0 then
+  begin
+    Result := CreateRef(TNothing.Create);
+    Exit;
+  end;
+
   for i := 1 to args.Size - 1 do
   begin
     Result := runtime.Eval(args[i], context);
@@ -666,6 +672,7 @@ var
   item, expr : DataRef;
   list : TList;
   offset, i : Integer;
+  Int : TInteger;
 begin
   s := args[1]() as TSymbol;
   offset := 0;
@@ -675,10 +682,12 @@ begin
   list := runtime.Eval(args[2 + offset], context)() as TList;
   expr := args[3 + offset];
   c := TContext.Create(context);
+  c['#i'] := CreateRef(TInteger.Create(0));
 
   for i := 0 to list.Size - 1 do
   begin
     c[s.Value] := list[i];
+    (c['#i']() as TInteger).Value := IntToStr(i);
     runtime.Eval(expr, c);
   end;
 
