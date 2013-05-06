@@ -3,7 +3,7 @@ unit Modules;
 interface
 
 uses
-  Memory, Data, Common, Lisp, System.IOUtils,
+  Memory, Data, Common, System.IOUtils,
   System.Generics.Collections;
 
 type
@@ -16,26 +16,32 @@ type
       FSourceFile : string;
       FContext : TContext;
       FRuntime : TRuntime;
+      FName : string;
 
     public
       constructor Create(moduleFile : string);
       destructor Destroy(); override;
+
+      property Context : TContext read FContext;
+      property Name : string read FName;
 
       function Load(runtime : TRuntime) : Boolean;
   end;
 
   TModuleManager = class
     protected
-      FModules : TObjectList<TModule>;
+      FModules : TObjectDictionary<string,TModule>;
+      FRuntime : TRuntime;
 
     public
-      constructor Create();
+      constructor Create(runtime : TRuntime);
       destructor Destroy(); override;
 
-  end;
+      property Modules : TObjectDictionary<string,TModule> read FModules;
 
-var
-  ModuleManager : TModuleManager;
+      function Load(filename : string) : TModule;
+
+  end;
 
 implementation
 
@@ -46,6 +52,8 @@ constructor TModule.Create(moduleFile: string);
 begin
   FContext := TContext.Create(Nil);
   FSourceFile := moduleFile;
+
+  FName := TPath.GetFileNameWithoutExtension(moduleFile);
 end;
 
 destructor TModule.Destroy;
@@ -56,44 +64,47 @@ begin
 end;
 
 function TModule.Load(runtime: TRuntime): Boolean;
-var
-  text : string;
-  res : DataRef;
 begin
-  try
-    text := TFile.ReadAllText(FSourceFile);
-    runtime.Eval(text, FContext);
-  except
-    Exit(False);
-  end;
-
-  // Wrap everything into a do statement and evaluate all expressions in the file
-  // in the module context
-  text := '(do ' + text + ')';
-  runtime.Eval(text, FContext);
+  runtime.Eval('(load "' + FSourceFile + '")', FContext);
 
   Result := True;
 end;
 
 { TModuleManager }
 
-constructor TModuleManager.Create;
+constructor TModuleManager.Create(runtime : TRuntime);
 begin
-  FModules := TObjectList<TModule>.Create();
+  FModules := TObjectDictionary<string, TModule>.Create([doOwnsValues]);
+  FRuntime := runtime;
 end;
 
 destructor TModuleManager.Destroy;
 begin
   FModules.Free;
+  FRuntime := Nil;
   inherited;
+end;
+
+function TModuleManager.Load(filename: string) : TModule;
+var
+  module : TModule;
+begin
+  // TODO: Extract proper module name from filename
+
+  // Check if the module already has been loaded
+  if FModules.ContainsKey(filename) then
+    Exit(FModules[filename]);
+
+  // Otherwise load the module
+  module := TModule.Create(filename);
+  module.Load(FRuntime);
+  FModules.Add(filename, module);
+
+  Result := module;
 end;
 
 initialization
 
-ModuleManager := TModuleManager.Create;
-
 finalization
-
-ModuleManager.Free;
 
 end.

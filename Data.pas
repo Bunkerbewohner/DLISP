@@ -8,7 +8,8 @@ uses
   SysUtils,
   Memory,
   System.Generics.Collections,
-  System.RegularExpressions, Math;
+  System.RegularExpressions,
+  Math;
 
 var
   FormatSettings : TFormatSettings;
@@ -151,6 +152,36 @@ type
       class function Match(v : string) : Boolean;
   end;
 
+  TAbstractObject = class abstract(TAtom)
+
+  end;
+
+  /// <summary>
+  /// An abstract object implementation wrapping a native Delphi class instance.
+  /// </summary>
+  TDelphiObject = class(TAbstractObject)
+    protected
+      FObject : TObject;
+      FOwned : Boolean;
+
+    public
+      /// <summary>Creates a Lisp object that owns the contained delphi object
+      /// </summary>
+      constructor CreateOwned(obj : TObject);
+      constructor Create(obj : TObject);
+      destructor Destroy(); override;
+
+      property Content : TObject read FObject;
+
+  end;
+
+  /// <summary>
+  /// An abstract object implementation for DLISP.
+  /// </summary>
+  TLispObject = class(TAbstractObject)
+
+  end;
+
   TList = class(TData)
     protected
       Items : TList<DataRef>;
@@ -185,8 +216,8 @@ type
       FParent : TContext;
       FSymbols : TDictionary<string, DataRef>;
 
-      function GetSymbol(name : string) : Ref<TData>;
-      procedure SetSymbol(name : string; Data : Ref<TData>);
+      function GetSymbol(name : string) : Ref<TData>; virtual;
+      procedure SetSymbol(name : string; Data : Ref<TData>); virtual;
 
     public
       constructor Create(parent : TContext);
@@ -195,9 +226,25 @@ type
       property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
 
-      function IsDefined(name : string) : Boolean;
+      function IsDefined(name : string) : Boolean; virtual;
 
-      procedure Remove(name : string);
+      function GetDelphiObject<T : class>(name : string) : T;
+
+      procedure Import(context : TContext; prefix : string);
+
+      procedure Remove(name : string); virtual;
+  end;
+
+  TScopedContext = class(TContext)
+    protected
+      FScope : TContext;
+      FContext : TContext;
+
+    public
+      constructor Create(context : TContext; scope : TContext);
+
+      function GetSymbol(name : string) : Ref<TData>; override;
+      function IsDefined(name : string) : Boolean; override;
   end;
 
   TFunction = class abstract(TData)
@@ -316,18 +363,18 @@ begin
   Result := Result + ')';
 end;
 
-function TList.ValueEquals(b: TData): Boolean;
+function TList.ValueEquals(b : TData) : Boolean;
 var
   other : TList;
-  i: Integer;
+  I : Integer;
 begin
   other := b as TList;
   Result := True;
 
-  for i := 0 to Min(Size - 1, other.Size - 1) do
+  for I := 0 to Min(Size - 1, other.Size - 1) do
   begin
-    if not Items[i]().ValueEquals(other[i]()) then
-      Exit(False);
+    if not Items[I]().ValueEquals(other[I]()) then
+        Exit(False);
   end;
 end;
 
@@ -363,6 +410,11 @@ begin
   FSymbols.Free;
 end;
 
+function TContext.GetDelphiObject<T>(name : string) : T;
+begin
+  Result := (GetSymbol(name)() as TDelphiObject).Content as T;
+end;
+
 function TContext.GetSymbol(name : string) : Ref<TData>;
 begin
   if FSymbols.ContainsKey(name) then
@@ -376,6 +428,16 @@ begin
   else
   begin
     raise Exception.Create('Symbol "' + name + '" unknown');
+  end;
+end;
+
+procedure TContext.Import(context: TContext; prefix: string);
+var
+  symbol : string;
+begin
+  for symbol in context.FSymbols.Keys do
+  begin
+    SetSymbol(prefix + symbol, context[symbol]);
   end;
 end;
 
@@ -411,18 +473,18 @@ begin
   IntValue := StrToInt(v);
 end;
 
-function TInteger.Compare(b: TNumber): TNumber;
+function TInteger.Compare(b : TNumber) : TNumber;
 var
-  i : Integer;
+  I : Integer;
 begin
   if b is TInteger then
-    i := Sign(IntValue - (b as TInteger).IntValue)
+      I := Sign(IntValue - (b as TInteger).IntValue)
   else if b is TFloat then
-    i := Sign(IntValue - (b as TFloat).FloatValue)
+      I := Sign(IntValue - (b as TFloat).FloatValue)
   else
-    raise Exception.Create('unsupported operand');
+      raise Exception.Create('unsupported operand');
 
-  Result := TInteger.Create(i);
+  Result := TInteger.Create(I);
 end;
 
 function TInteger.Copy : TData;
@@ -499,18 +561,18 @@ begin
   FloatValue := StrToFloat(v, FormatSettings);
 end;
 
-function TFloat.Compare(b: TNumber): TNumber;
+function TFloat.Compare(b : TNumber) : TNumber;
 var
-  i : Integer;
+  I : Integer;
 begin
   if b is TInteger then
-    i := Sign(FloatValue - (b as TInteger).IntValue)
+      I := Sign(FloatValue - (b as TInteger).IntValue)
   else if b is TFloat then
-    i := Sign(FloatValue - (b as TFloat).FloatValue)
+      I := Sign(FloatValue - (b as TFloat).FloatValue)
   else
-    raise Exception.Create('unsupported operand');
+      raise Exception.Create('unsupported operand');
 
-  Result := TInteger.Create(i);
+  Result := TInteger.Create(I);
 end;
 
 function TFloat.Copy : TData;
@@ -741,6 +803,49 @@ end;
 function TString.ToString : string;
 begin
   Result := '"' + Value + '"';
+end;
+
+{ TObject }
+
+constructor TDelphiObject.Create(obj : TObject);
+begin
+  FObject := obj;
+  FOwned := False;
+end;
+
+constructor TDelphiObject.CreateOwned(obj : TObject);
+begin
+  FObject := obj;
+  FOwned := True;
+end;
+
+destructor TDelphiObject.Destroy;
+begin
+  if FOwned then
+      FObject.Free;
+  inherited;
+end;
+
+{ TScopedContext }
+
+constructor TScopedContext.Create(context, scope : TContext);
+begin
+  inherited Create(Nil);
+  FScope := scope;
+  FContext := context;
+end;
+
+function TScopedContext.GetSymbol(name : string) : Ref<TData>;
+begin
+  if FContext.IsDefined(name) then
+      Result := FContext[name]
+  else
+      Result := FScope[name];
+end;
+
+function TScopedContext.IsDefined(name : string) : Boolean;
+begin
+  Result := FContext.IsDefined(name) or FScope.IsDefined(name);
 end;
 
 initialization

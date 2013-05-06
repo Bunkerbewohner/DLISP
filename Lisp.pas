@@ -11,19 +11,17 @@ uses
   System.Generics.Collections,
   System.RegularExpressions,
   Data,
-  Common;
+  Common,
+  Modules;
 
 type
 
   ProcBuiltIn = reference to function(context : TContext; args : Ref<TList>) : Ref<TData>;
 
   TLisp = class(TRuntime)
-  private
-
     protected
       FGlobal : TContext;
-      FBuiltIns : TDictionary<string, ProcBuiltIn>;
-      FNativeFunctions : TDictionary<string, TNativeFunction>;
+      FModuleManager : TModuleManager;
 
       /// <summary>Evaluates all expressions in the list and returns a new
       /// list with the results.</summary>
@@ -60,6 +58,7 @@ var
   fn: TFunction;
 begin
   FGlobal := TContext.Create(Nil);
+  FModuleManager := TModuleManager.Create(Self);
 
   for fn in NativeFunctionList do
   begin
@@ -67,11 +66,13 @@ begin
   end;
 
   FGlobal['nil'] := CreateRef(TNothing.Create());
+  FGlobal['*module-manager*'] := CreateRef(TDelphiObject.Create(FModuleManager));
 end;
 
 destructor TLisp.Destroy;
 begin
   FGlobal.Free;
+  FModuleManager.Free;
   inherited;
 end;
 

@@ -8,7 +8,7 @@ uses
   Memory,
   Common,
   System.Generics.Collections,
-  SysUtils;
+  SysUtils, System.IOUtils, Modules;
 
 var
   NativeFunctionList : TList<TFunction>;
@@ -695,6 +695,83 @@ begin
   c.Free;
 end;
 
+/// <summary>
+/// Loads a LISP file by evaluating all contained expressions in the current
+/// context.
+/// </summary>
+function _load(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  filename, code : string;
+begin
+  filename := (args[1]() as TString).Value;
+  if not TFile.Exists(filename) then
+    raise Exception.Create('File does not exist: "' + filename + '"');
+
+  try
+    code := TFile.ReadAllText(filename);
+  except
+    Exit(CreateRef(TNothing.Create));
+  end;
+
+  // Wrap everything into a do statement and evaluate all expressions
+  code := '(do ' + code + ')';
+  runtime.Eval(code, context);
+
+  Result := CreateRef(TNothing.Create);
+end;
+
+// (uses <path>)
+function _use(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  path : string;
+  module : TModule;
+  moduleManager : TModuleManager;
+  prefix : string;
+begin
+  if args[1]() is TSymbol then
+  begin
+    // TODO: use search path additionally to CWD
+    path := (args[1]() as TSymbol).Value + '.cl';
+  end
+  else
+    path := (args[1]() as TString).Value;
+
+  moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
+  module := moduleManager.Load(path);
+
+  // import the symbols prefixed into the current context
+  if (args.Size = 4) and (args[2]().Value = ':as') then
+    prefix := args[3]().Value + '/'
+  else if (args.Size = 3) and (args[2]().Value = ':ns') then
+    prefix := module.Name + '/'
+  else
+    prefix := '';
+
+  // Always import symbols with <ModuleName>/ prefix
+  if prefix <> (module.Name + '/') then
+    context.Import(module.Context, module.Name + '/');
+
+  // Import with user defined prefix (default: empty)
+  context.Import(module.Context, prefix);
+
+  Result := context['nil'];
+end;
+
+function __module_get(runtime: TRuntime; context: TContext; args: ListRef): DataRef;
+var
+  c : TScopedContext;
+  module : TModule;
+  moduleName : string;
+  moduleManager : TModuleManager;
+begin
+  moduleName := (runtime.Eval(args[1], context)() as TSymbol).Value;
+  moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
+  module := moduleManager.Modules[moduleName];
+  c := TScopedContext.Create(context, module.Context);
+  Result := runtime.Eval(args[2], c);
+  c.Free;
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -711,6 +788,7 @@ TNativeFunction.Create('and', __and);
 TNativeFunction.Create('or', __or);
 TNativeFunction.Create('comment', __comment);
 TNativeFunction.Create('foreach', __foreach);
+TNativeFunction.Create('module-get', __module_get);
 
 TEvaluatingNativeFunction.Create('read', _read);
 TEvaluatingNativeFunction.Create('eval', _eval);
@@ -730,6 +808,8 @@ TEvaluatingNativeFunction.Create('rest', _rest);
 TEvaluatingNativeFunction.Create('map', _map);
 TEvaluatingNativeFunction.Create('filter', _filter);
 TEvaluatingNativeFunction.Create('nil?', _nil_);
+TEvaluatingNativeFunction.Create('load', _load);
+TEvaluatingNativeFunction.Create('use', _use);
 
 TEvaluatingNativeFunction.Create('+', _plus);
 TEvaluatingNativeFunction.Create('-', _minus);
