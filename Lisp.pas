@@ -86,7 +86,7 @@ var
   i: Integer;
   data : TData;
   fnScope : TContext;
-  className : string;
+  className, dbg : string;
   
 begin
   if code() is TSymbol then
@@ -107,7 +107,10 @@ begin
     if list[0]() is TSymbol then symbol := list[0]() as TSymbol
     else symbol := Nil;
 
+{$IFDEF DEBUG}
     className := list[0]().ClassName;
+    dbg := list.ToString;
+{$ENDIF}
 
     if (symbol <> nil) and (FGlobal.IsDefined(symbol.Value)) and
       (FGlobal[symbol.Value]() is TNativeFunction) then
@@ -119,7 +122,7 @@ begin
     begin
       Result := (list[0]() as TNativeFunction).Apply(Self, context, list);
     end
-    else
+    else if list().Executable then
     begin
       // this looks like a function application; evaluate all arguments
       evaluated := TRef<TList>.Create(TList.Create());
@@ -162,7 +165,9 @@ begin
       end;
 
       fnScope.Free;
-    end;
+    end
+    else
+      Result := code;
   end
   else
   begin
@@ -202,6 +207,7 @@ var
   item : Ref<TData>;
   text : string;
   charsTrimmed : Integer;
+  anonymousFunction : Boolean;
 
   function IsWhitespace(c : Char) : Boolean;
   begin
@@ -224,6 +230,14 @@ begin
   charsTrimmed := input.Length - text.Length;
   input := text;
   if Length(text) = 0 then Exit(CreateRef(TNothing.Create));
+
+  // check for #( prefix which denotes an anonymous function def.
+  if (input[1] = '#') and (input[2] = '(') then
+  begin
+    charsTrimmed := charsTrimmed + 1;
+    input := input.Substring(1);
+    anonymousFunction := True;
+  end else anonymousFunction := False;
 
   // check for atom
   if (input[1] <> '(') and (input[1] <> '[') and (input[1] <> '{') then
@@ -280,7 +294,9 @@ begin
   i := 2;
 
   list := TRef<TList>.Create(TList.Create());
-  if input[1] = '[' then
+  if anonymousFunction then
+    list.Add(CreateRef(TSymbol.Create('anonymous-function'))
+  else if input[1] = '[' then
     list.Add(CreateRef(TSymbol.Create('list')));
 
   while i <= Length(input) do

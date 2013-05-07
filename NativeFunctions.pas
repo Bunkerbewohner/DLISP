@@ -8,7 +8,10 @@ uses
   Memory,
   Common,
   System.Generics.Collections,
-  SysUtils, System.IOUtils, Modules;
+  SysUtils,
+  System.IOUtils,
+  Modules,
+  RegularExpressions;
 
 var
   NativeFunctionList : TList<TFunction>;
@@ -107,7 +110,7 @@ function __let(runtime : TRuntime; context : TContext; args : Ref<TList>) : Data
 var
   bindings : TList;
   subcontext : TContext;
-  i: Integer;
+  i : Integer;
   symbol : TSymbol;
   exp : DataRef;
   temp : TData;
@@ -232,6 +235,7 @@ var
   i : Integer;
 begin
   list := TList.Create();
+  list.Executable := False;
 
   for i := 1 to args.Size - 1 do
   begin
@@ -373,7 +377,7 @@ end;
 function _plus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   number, temp : TNumber;
-  i: Integer;
+  i : Integer;
 begin
   Assert(args.Size >= 3);
   Assert(args[1]() is TNumber);
@@ -393,7 +397,7 @@ end;
 function _minus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   number, temp : TNumber;
-  i: Integer;
+  i : Integer;
 begin
   Assert(args.Size >= 3);
   Assert(args[1]() is TNumber);
@@ -413,7 +417,7 @@ end;
 function _multiply(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   number, temp : TNumber;
-  i: Integer;
+  i : Integer;
 begin
   Assert(args.Size >= 3);
   Assert(args[1]() is TNumber);
@@ -433,7 +437,7 @@ end;
 function _divide(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   number, temp : TNumber;
-  i: Integer;
+  i : Integer;
 begin
   Assert(args.Size >= 3);
   Assert(args[1]() is TNumber);
@@ -470,13 +474,13 @@ end;
 function _inc(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   num : TNumber;
-  add : TInteger;
+  Add : TInteger;
 begin
   num := args[1]() as TNumber;
-  add := TInteger.Create(1);
-  num := num.Plus(add);
-  result := CreateRef(num);
-  add.Free;
+  Add := TInteger.Create(1);
+  num := num.Plus(Add);
+  Result := CreateRef(num);
+  Add.Free;
 end;
 
 function _dec(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -487,22 +491,22 @@ begin
   num := args[1]() as TNumber;
   sub := TInteger.Create(1);
   num := num.Minus(sub);
-  result := CreateRef(num);
+  Result := CreateRef(num);
   sub.Free;
 end;
 
 function _filter(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  fn : TFunction;
+  Fn : TFunction;
   fnRef : DataRef;
   col, filtered, l : TList;
-  item, params: DataRef;
+  item, params : DataRef;
   b : Boolean;
   bRef : DataRef;
-  i: Integer;
+  i : Integer;
 begin
   fnRef := args[1];
-  fn := fnRef() as TFunction;
+  Fn := fnRef() as TFunction;
   col := args[2]() as TList;
   filtered := TList.Create();
   for i := 0 to col.Size - 1 do
@@ -510,7 +514,7 @@ begin
     params := CreateRef(TList.Create([fnRef, col[i]]));
     l := params() as TList;
     bRef := runtime.Eval(params, context);
-    if (bRef is TBoolean) and (bref as TBoolean).BoolValue then
+    if (bRef is TBoolean) and (bRef as TBoolean).BoolValue then
     begin
       filtered.Add(col[i]);
     end;
@@ -540,7 +544,7 @@ begin
     else Result := CreateRef(TBoolean.Create(False));
   end
   else
-    raise Exception.Create('unsupported operand');
+      raise Exception.Create('unsupported operand');
 end;
 
 function _lessorequal(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -559,7 +563,7 @@ begin
     else Result := CreateRef(TBoolean.Create(False));
   end
   else
-    raise Exception.Create('unsupported operand');
+      raise Exception.Create('unsupported operand');
 end;
 
 function _greater(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -578,7 +582,7 @@ begin
     else Result := CreateRef(TBoolean.Create(False));
   end
   else
-    raise Exception.Create('unsupported operand');
+      raise Exception.Create('unsupported operand');
 end;
 
 function _greaterorequal(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -597,7 +601,7 @@ begin
     else Result := CreateRef(TBoolean.Create(False));
   end
   else
-    raise Exception.Create('unsupported operand');
+      raise Exception.Create('unsupported operand');
 end;
 
 function __and(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -605,14 +609,14 @@ var
   b : Boolean;
   temp : DataRef;
   expr : TData;
-  i: Integer;
+  i : Integer;
 begin
   b := True;
   for i := 1 to args.Size - 1 do
   begin
     temp := runtime.Eval(args[i], context);
     expr := temp();
-    if (not (expr is TBoolean)) or (not (expr as TBoolean).BoolValue) then
+    if (not(expr is TBoolean)) or (not(expr as TBoolean).BoolValue) then
     begin
       b := False;
       break;
@@ -627,7 +631,7 @@ var
   b : Boolean;
   temp : DataRef;
   expr : TData;
-  i: Integer;
+  i : Integer;
 begin
   b := False;
   for i := 1 to args.Size - 1 do
@@ -644,7 +648,7 @@ begin
   Result := CreateRef(TBoolean.Create(b));
 end;
 
-function __comment(runtime : TRuntime; context : TContext; args : Listref) : DataRef;
+function __comment(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 begin
   Result := CreateRef(TNothing.Create());
 end;
@@ -677,7 +681,7 @@ begin
   s := args[1]() as TSymbol;
   offset := 0;
   if (args[2]() is TSymbol) and ((args[2]() as TSymbol).Value = 'in') then
-    offset := 1;
+      offset := 1;
 
   list := runtime.Eval(args[2 + offset], context)() as TList;
   expr := args[3 + offset];
@@ -705,7 +709,7 @@ var
 begin
   filename := (args[1]() as TString).Value;
   if not TFile.Exists(filename) then
-    raise Exception.Create('File does not exist: "' + filename + '"');
+      raise Exception.Create('File does not exist: "' + filename + '"');
 
   try
     code := TFile.ReadAllText(filename);
@@ -734,30 +738,30 @@ begin
     path := (args[1]() as TSymbol).Value + '.cl';
   end
   else
-    path := (args[1]() as TString).Value;
+      path := (args[1]() as TString).Value;
 
   moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
   module := moduleManager.Load(path);
 
   // import the symbols prefixed into the current context
   if (args.Size = 4) and (args[2]().Value = ':as') then
-    prefix := args[3]().Value + '/'
+      prefix := args[3]().Value + '/'
   else if (args.Size = 3) and (args[2]().Value = ':ns') then
-    prefix := module.Name + '/'
+      prefix := module.name + '/'
   else
-    prefix := '';
+      prefix := '';
 
   // Always import symbols with <ModuleName>/ prefix
-  if prefix <> (module.Name + '/') then
-    context.Import(module.Context, module.Name + '/');
+  if prefix <> (module.name + '/') then
+      context.Import(module.context, module.name + '/');
 
   // Import with user defined prefix (default: empty)
-  context.Import(module.Context, prefix);
+  context.Import(module.context, prefix);
 
   Result := context['nil'];
 end;
 
-function __module_get(runtime: TRuntime; context: TContext; args: ListRef): DataRef;
+function __module_get(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   c : TScopedContext;
   module : TModule;
@@ -767,9 +771,70 @@ begin
   moduleName := (runtime.Eval(args[1], context)() as TSymbol).Value;
   moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
   module := moduleManager.Modules[moduleName];
-  c := TScopedContext.Create(context, module.Context);
+  c := TScopedContext.Create(context, module.context);
   Result := runtime.Eval(args[2], c);
   c.Free;
+end;
+
+function _in(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  list : TList;
+  item : DataRef;
+  i : Integer;
+begin
+  list := args[1]() as TList;
+  for i := 0 to list.Size - 1 do
+  begin
+    if list[i]().ValueEquals(args[2]()) then
+        Exit(CreateRef(TBoolean.Create(True)));
+  end;
+
+  Result := CreateRef(TBoolean.Create(False));
+end;
+
+/// (anonymous-function expr)
+function __anonymous_function(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  i : Integer;
+  implicitArgs : TList;
+  code, expr : TList;
+  text, symbol : string;
+  matches : TMatchCollection;
+  match: TMatch;
+  symbols : TList<string>;
+begin
+  implicitArgs := TList.Create();
+  symbols := TList<string>.Create();
+  expr := TList.Create();
+  for i := 1 to args.Size - 1 do
+    expr.Add(args[i]);
+
+  // scan for placeholders to find the required arguments
+  text := expr.ToString;
+  matches := TRegEx.Matches(text, '%\d?');
+  for match in matches do
+  begin
+    symbol := match.Value;
+    if not symbols.Contains(symbol) then symbols.Add(symbol);
+  end;
+  symbols.Sort;
+
+  // list arguments to the anonymous functions
+  implicitArgs.Add(CreateRef(TSymbol.Create('list')));
+  for symbol in symbols do
+  begin
+    implicitArgs.Add(CreateRef(TSymbol.Create(symbol)));
+  end;
+  implicitArgs.Executable := False;
+
+  // generate the code (fn [p0 p1 ... pN] expr*)
+  code := TList.Create();
+  code.Add(CreateRef(TSymbol.Create('fn'))); // (fn
+  code.Add(CreateRef(implicitArgs));        // (fn [...]
+  code.Add(CreateRef(expr));                        // function body
+
+  Result := runtime.Eval(CreateRef(code), context);
+  symbols.Free;
 end;
 
 initialization
@@ -789,6 +854,7 @@ TNativeFunction.Create('or', __or);
 TNativeFunction.Create('comment', __comment);
 TNativeFunction.Create('foreach', __foreach);
 TNativeFunction.Create('module-get', __module_get);
+TNativeFunction.Create('anonymous-function', __anonymous_function);
 
 TEvaluatingNativeFunction.Create('read', _read);
 TEvaluatingNativeFunction.Create('eval', _eval);
@@ -810,6 +876,7 @@ TEvaluatingNativeFunction.Create('filter', _filter);
 TEvaluatingNativeFunction.Create('nil?', _nil_);
 TEvaluatingNativeFunction.Create('load', _load);
 TEvaluatingNativeFunction.Create('use', _use);
+TEvaluatingNativeFunction.Create('in', _in);
 
 TEvaluatingNativeFunction.Create('+', _plus);
 TEvaluatingNativeFunction.Create('-', _minus);
@@ -821,7 +888,6 @@ TEvaluatingNativeFunction.Create('<', _less);
 TEvaluatingNativeFunction.Create('<=', _lessorequal);
 TEvaluatingNativeFunction.Create('>', _greater);
 TEvaluatingNativeFunction.Create('>=', _greaterorequal);
-
 
 finalization
 

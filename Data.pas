@@ -191,6 +191,8 @@ type
 
     public
 
+      Executable : Boolean;
+
       property Size : Integer read GetSize;
       property DataItems[n : Integer] : DataRef read GetItem; default;
 
@@ -323,6 +325,7 @@ constructor TList.Create;
 begin
   inherited;
   Items := TList<DataRef>.Create();
+  Executable := true;
 end;
 
 destructor TList.Destroy;
