@@ -11,7 +11,9 @@ uses
   SysUtils,
   System.IOUtils,
   Modules,
-  RegularExpressions;
+  RegularExpressions,
+  Collections,
+  UserData;
 
 var
   NativeFunctionList : TList<TFunction>;
@@ -804,18 +806,18 @@ var
   code, expr : TList;
   text, symbol : string;
   matches : TMatchCollection;
-  match: TMatch;
+  match : TMatch;
   symbols : TList<string>;
 begin
   implicitArgs := TList.Create();
   symbols := TList<string>.Create();
   expr := TList.Create();
   for i := 1 to args.Size - 1 do
-    expr.Add(args[i]);
+      expr.Add(args[i]);
 
   // scan for placeholders to find the required arguments
   text := expr.ToString;
-  matches := TRegEx.Matches(text, '%\d?');
+  matches := TRegEx.matches(text, '%\d?');
   for match in matches do
   begin
     symbol := match.Value;

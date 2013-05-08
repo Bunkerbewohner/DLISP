@@ -52,21 +52,7 @@ type
       function ToString : string; override;
   end;
 
-  TList = class;
   DataRef = Ref<TData>;
-
-  TLispListEnumerator = class(TEnumerator<DataRef>)
-    private
-      FList : TList;
-      FCurrent : Ref<TData>;
-      FIndex : Integer;
-
-    public
-      constructor Create(list : TList);
-
-      function DoGetCurrent : Ref<TData>; override;
-      function DoMoveNext : Boolean; override;
-  end;
 
   TSymbol = class(TAtom)
     public
@@ -182,37 +168,6 @@ type
 
   end;
 
-  TList = class(TData)
-    protected
-      Items : TList<DataRef>;
-
-      function GetSize() : Integer;
-      function GetItem(n : Integer) : DataRef;
-
-    public
-
-      Executable : Boolean;
-
-      property Size : Integer read GetSize;
-      property DataItems[n : Integer] : DataRef read GetItem; default;
-
-      procedure Add(item : DataRef);
-
-      function ValueEquals(b : TData) : Boolean; override;
-
-      constructor Create(); overload;
-      constructor Create(Items : array of DataRef); overload;
-      destructor Destroy(); override;
-
-      function Copy() : TData; override;
-
-      function GetEnumerator : TEnumerator<DataRef>;
-
-      function ToString : string; override;
-  end;
-
-  ListRef = Ref<TList>;
-
   /// <summary>
   /// Hierarchical program execution context. Contains a symbol reference table
   /// and an optional reference to a parent context. Reads will search the tree
@@ -236,6 +191,8 @@ type
       ///</summary>
       property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
+
+      property Parent : TContext read FParent;
 
       ///<summary>Return true if the symbol is defined in this context or
       ///in one of its ancestors.</summary>
@@ -283,25 +240,6 @@ type
 
   end;
 
-  TUserFunction = class(TFunction)
-    protected
-      FCode : Ref<TList>;
-      FArgs : Ref<TList>;
-
-    public
-      constructor Create(code : Ref<TList>; parentContext : TContext);
-      destructor Destroy(); override;
-
-      property context : TContext read FContext;
-      property Args : Ref<TList> read FArgs;
-      property code : Ref<TList> read FCode;
-
-      function Copy() : TData; override;
-
-      function ToString : string; override;
-  end;
-
-function CreateListRef(Data : TList) : DataRef;
 function CreateRef(Data : TData) : DataRef;
 
 implementation
@@ -309,102 +247,6 @@ implementation
 function CreateRef(Data : TData) : DataRef;
 begin
   Result := TRef<TData>.Create(Data);
-end;
-
-function CreateListRef(Data : TList) : DataRef;
-begin
-  Result := TRef<TData>.Create(Data);
-end;
-
-{ TParseList }
-
-procedure TList.Add(item : Ref<TData>);
-begin
-  Items.Add(item);
-end;
-
-function TList.Copy : TData;
-var
-  item : DataRef;
-  list : TList;
-begin
-  list := TList.Create();
-  for item in Items do
-  begin
-    list.Add(CreateRef(item().Copy()));
-  end;
-  Result := list;
-end;
-
-constructor TList.Create(Items : array of DataRef);
-var
-  I : Integer;
-begin
-  inherited Create();
-  Self.Items := TList<DataRef>.Create();
-
-  for I := 0 to Length(Items) - 1 do
-      Add(Items[I]);
-end;
-
-constructor TList.Create;
-begin
-  inherited;
-  Items := TList<DataRef>.Create();
-  Executable := true;
-end;
-
-destructor TList.Destroy;
-begin
-  Items.Free;
-  inherited;
-end;
-
-function TList.GetEnumerator : TEnumerator<Ref<TData>>;
-begin
-  Result := TLispListEnumerator.Create(Self);
-end;
-
-function TList.GetItem(n : Integer) : Ref<TData>;
-begin
-  Result := Ref<TData>(Items[n]);
-end;
-
-function TList.GetSize : Integer;
-begin
-  Result := Items.Count;
-end;
-
-function TList.ToString : string;
-var
-  I : Integer;
-  DataRef : Ref<TData>;
-  Data : TData;
-begin
-  Result := '(';
-  for I := 0 to Items.Count - 1 do
-  begin
-    if I > 0 then Result := Result + ' ';
-    DataRef := Ref<TData>(Items[I]);
-    Data := DataRef();
-    Result := Result + Data.ToString;
-  end;
-  Result := Result + ')';
-end;
-
-function TList.ValueEquals(b : TData) : Boolean;
-var
-  other : TList;
-  I : Integer;
-begin
-  other := b as TList;
-  Result := True;
-
-  for I := 0 to Min(Size - 1, other.Size - 1) do
-  begin
-    if not Items[I]().ValueEquals(other[I]()) then
-        Exit(False);
-  end;
 end;
 
 { TParseString }
@@ -742,25 +584,6 @@ begin
   Result := Self.Value.Equals(b.Value);
 end;
 
-{ TLispListEnumerator }
-
-constructor TLispListEnumerator.Create(list : TList);
-begin
-  Self.FList := list;
-  Self.FCurrent := nil;
-  Self.FIndex := 0;
-end;
-
-function TLispListEnumerator.DoGetCurrent : Ref<TData>;
-begin
-  Result := FList[FIndex];
-end;
-
-function TLispListEnumerator.DoMoveNext : Boolean;
-begin
-  Result := FIndex < FList.Size;
-end;
-
 { TNothing }
 
 function TNothing.Copy : TData;
@@ -776,50 +599,6 @@ end;
 function TNothing.ToString : string;
 begin
   Result := 'TNothing';
-end;
-
-{ TFunction }
-
-function TUserFunction.Copy : TData;
-var
-  fn : TUserFunction;
-begin
-  fn := TUserFunction.Create(FCode, FContext.FParent);
-  Result := fn;
-end;
-
-constructor TUserFunction.Create(code : Ref<TList>; parentContext : TContext);
-var
-  Args, list : TList;
-  I : Integer;
-begin
-  FCode := code;
-  FContext := TContext.Create(parentContext);
-
-  // (fn [p1 p2 & ps] (...) (...))
-  Assert((code[0]() is TSymbol));
-  Assert(code[1]() is TList);
-  Assert(code.Size > 2);
-
-  // First argument is a list of symbols for arguments
-  // FArgs := TRef<TList>.Create(code[1]() as TList);
-  list := code[1]() as TList;
-  Args := TList.Create();
-  for I := 1 to list.Size - 1 do
-      Args.Add(list[I]);
-
-  FArgs := TRef<TList>.Create(Args);
-end;
-
-destructor TUserFunction.Destroy;
-begin
-  FContext.Free;
-  inherited;
-end;
-
-function TUserFunction.ToString : string;
-begin
-  Result := FCode.ToString;
 end;
 
 { TString }

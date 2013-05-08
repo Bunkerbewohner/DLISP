@@ -12,7 +12,9 @@ uses
   System.RegularExpressions,
   Data,
   Common,
-  Modules;
+  Modules,
+  UserData,
+  Collections;
 
 type
 
