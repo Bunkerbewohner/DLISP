@@ -21,13 +21,6 @@ type
       destructor Destroy(); override;
 
       function Invoke : T;
-
-      function Convert<T2 : class, constructor> : TRef<T2>;
-  end;
-
-  TRefHelper = class
-    public
-      class function Convert<T : class, constructor; V : class, constructor>(a : Ref<T>) : Ref<V>;
   end;
 
 implementation
@@ -38,11 +31,6 @@ constructor TRef<T>.Create;
 begin
   inherited;
   FValue := T.Create();
-end;
-
-function TRef<T>.Convert<T2>: TRef<T2>;
-begin
-  Result := TRef<T2>.Create(FValue as T2);
 end;
 
 constructor TRef<T>.Create(val: T);
@@ -63,13 +51,6 @@ end;
 function TRef<T>.Invoke: T;
 begin
   Result := FValue;
-end;
-
-{ TRefHelper }
-
-class function TRefHelper.Convert<T, V>(a: Ref<T>): Ref<V>;
-begin
-  Result := TRef<V>.Create(a() as V);
 end;
 
 end.

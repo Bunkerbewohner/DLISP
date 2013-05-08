@@ -213,6 +213,11 @@ type
 
   ListRef = Ref<TList>;
 
+  /// <summary>
+  /// Hierarchical program execution context. Contains a symbol reference table
+  /// and an optional reference to a parent context. Reads will search the tree
+  /// upwards. Writes always only apply the current context.
+  /// </summary>
   TContext = class
     protected
       FParent : TContext;
@@ -222,18 +227,29 @@ type
       procedure SetSymbol(name : string; Data : Ref<TData>); virtual;
 
     public
+      ///<summary>Creates a new context optionally chained to given parent context.</summary>
       constructor Create(parent : TContext);
       destructor Destroy(); override;
 
+      ///<summary>Symbols defined in this context. Can be used for reading
+      ///symbols in this and parent contexts, and writing into this context.
+      ///</summary>
       property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
 
+      ///<summary>Return true if the symbol is defined in this context or
+      ///in one of its ancestors.</summary>
       function IsDefined(name : string) : Boolean; virtual;
 
+      ///<summary>Looks up a TDelphiObject wrapper and returns the contained
+      ///native delphi object.</summary>
       function GetDelphiObject<T : class>(name : string) : T;
 
+      ///<summary>Imports all symbols from another context into this context.
+      ///All symbol names will be prefixed with <prefix>.</summary>
       procedure Import(context : TContext; prefix : string); virtual;
 
+      ///<summary>Removes a symbol reference from this context.</summary>
       procedure Remove(name : string); virtual;
   end;
 
@@ -258,6 +274,7 @@ type
       procedure Remove(name : string); override;
   end;
 
+  ///<summary>An abstract function</summary>
   TFunction = class abstract(TAtom)
     protected
       FContext : TContext;
