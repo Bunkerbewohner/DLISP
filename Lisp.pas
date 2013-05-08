@@ -16,53 +16,54 @@ uses
 
 type
 
-  ProcBuiltIn = reference to function(context : TContext; args : Ref<TList>) : Ref<TData>;
-
+  /// <summary>
+  /// DLisp interpreter. Provides everything needed for executing and loading
+  /// DLisp code.
+  /// </summary>
   TLisp = class(TRuntime)
     protected
       FGlobal : TContext;
       FModuleManager : TModuleManager;
 
-      /// <summary>Evaluates all expressions in the list and returns a new
-      /// list with the results.</summary>
-      function EvaluatedArgs(list : Ref<TList>; context : TContext; offset : Integer) : Ref<TList>;
-
       function GetGlobalContext : TContext; override;
 
     public
+      ///<summary>Creates new DLisp interpreter</summary>
       constructor Create();
       destructor Destroy(); override;
 
+      ///<summary>Parses a string and returns equivalent DLisp code.</summary>
+      ///<exception cref="Exception">When something goes wrong</exception>
       function Read(input : string) : Ref<TData>; override;
 
+      ///<summary>Evaluates DLisp code in the given context.</summary>
       function Eval(code : DataRef; context : TContext) : DataRef; override;
+
+      ///<summary>Parses and evaluates the input string in given context.</summary>
       function Eval(input : string; context : TContext) : DataRef; overload; override;
 
+      ///<summary>Parses and evaluates the input string in the global context.</summary>
+      function Eval(input : string) : DataRef; overload;
+
+      ///<summary>Register a native function in global context.</summary>
       procedure RegisterFunction(fn : TFunction);
 
   end;
 
-function CreateRef(data : TData) : DataRef;
-
 implementation
-
-function CreateRef(data : TData) : DataRef;
-begin
-  Result := TRef<TData>.Create(data);
-end;
 
 { TLisp }
 
 constructor TLisp.Create;
 var
-  fn: TFunction;
+  fn : TFunction;
 begin
-  FGlobal := TContext.Create(Nil);
+  FGlobal := TContext.Create(nil);
   FModuleManager := TModuleManager.Create(Self);
 
   for fn in NativeFunctionList do
   begin
-    self.RegisterFunction(fn);
+    Self.RegisterFunction(fn);
   end;
 
   FGlobal['nil'] := CreateRef(TNothing.Create());
@@ -83,11 +84,11 @@ var
   expr : Ref<TData>;
   fn : TUserFunction;
   native : TNativeFunction;
-  i: Integer;
-  data : TData;
+  i : Integer;
+  Data : TData;
   fnScope : TContext;
   className, dbg : string;
-  
+
 begin
   if code() is TSymbol then
   begin
@@ -105,13 +106,12 @@ begin
   begin
     list := Ref<TList>(code);
     if list[0]() is TSymbol then symbol := list[0]() as TSymbol
-    else symbol := Nil;
+    else symbol := nil;
 
 {$IFDEF DEBUG}
-    className := list[0]().ClassName;
+    className := list[0]().className;
     dbg := list.ToString;
 {$ENDIF}
-
     if (symbol <> nil) and (FGlobal.IsDefined(symbol.Value)) and
       (FGlobal[symbol.Value]() is TNativeFunction) then
     begin
@@ -131,13 +131,13 @@ begin
         evaluated.Add(Eval(list[i], context));
       end;
 
-      if not (evaluated[0]() is TUserFunction) then
+      if not(evaluated[0]() is TUserFunction) then
       begin
         raise Exception.Create('Unkown function "' + evaluated[0]().Value + '"');
       end;
 
       fn := evaluated[0]() as TUserFunction;
-      fnScope := TContext.Create(fn.Context);
+      fnScope := TContext.Create(fn.context);
 
       // args[0] = function name
       // args[1] = function arguments
@@ -147,14 +147,14 @@ begin
       for i := 1 to evaluated().Size - 1 do
       begin
         symbol := fn.Args()[i - 1]() as TSymbol;
-        data := evaluated[i]();
+        Data := evaluated[i]();
         fnScope[symbol.Value] := evaluated[i];
       end;
 
       // execute the function code
-      for i := 2 to fn.Code().Size - 1 do
+      for i := 2 to fn.code().Size - 1 do
       begin
-        Result := Eval(fn.Code()[i], fnScope);
+        Result := Eval(fn.code()[i], fnScope);
       end;
 
       // Clear the arguments from the context again
@@ -167,7 +167,7 @@ begin
       fnScope.Free;
     end
     else
-      Result := code;
+        Result := code;
   end
   else
   begin
@@ -180,21 +180,7 @@ begin
   Result := Eval(read(input), context);
 end;
 
-function TLisp.EvaluatedArgs(list: Ref<TList>; context : TContext; offset : Integer): Ref<TList>;
-var
-  args : TList;
-  i: Integer;
-begin
-  args := TList.Create();
-  for i := offset to list.Size - 1 do
-  begin
-    args.Add(Eval(list[i], context));
-  end;
-
-  Result := TRef<TList>.Create(args);
-end;
-
-function TLisp.GetGlobalContext: TContext;
+function TLisp.GetGlobalContext : TContext;
 begin
   Result := FGlobal;
 end;
@@ -237,7 +223,8 @@ begin
     charsTrimmed := charsTrimmed + 1;
     input := input.Substring(1);
     anonymousFunction := True;
-  end else anonymousFunction := False;
+  end
+  else anonymousFunction := False;
 
   // check for atom
   if (input[1] <> '(') and (input[1] <> '[') and (input[1] <> '{') then
@@ -265,7 +252,7 @@ begin
       else
           Result := CreateRef(TAtom.Create(text));
 
-      text := Result().ClassName;
+      text := Result().className;
       Result().ConsumedCharacters := i - 1;
     end
     else
@@ -295,9 +282,9 @@ begin
 
   list := TRef<TList>.Create(TList.Create());
   if anonymousFunction then
-    list.Add(CreateRef(TSymbol.Create('anonymous-function'))
+      list.Add(CreateRef(TSymbol.Create('anonymous-function')))
   else if input[1] = '[' then
-    list.Add(CreateRef(TSymbol.Create('list')));
+      list.Add(CreateRef(TSymbol.Create('list')));
 
   while i <= Length(input) do
   begin
@@ -309,15 +296,15 @@ begin
 
     item := read(input.Substring(i - 1));
     i := i + item.ConsumedCharacters;
-    if not (item is TNothing) then
-      list.Add(item);
+    if not(item is TNothing) then
+        list.Add(item);
   end;
 
   list.ConsumedCharacters := i - 1 + charsTrimmed;
   Result := Ref<TData>(list);
 end;
 
-procedure TLisp.RegisterFunction(fn: TFunction);
+procedure TLisp.RegisterFunction(fn : TFunction);
 var
   native : TNativeFunction;
 begin
@@ -326,6 +313,11 @@ begin
     native := fn as TNativeFunction;
     FGlobal[native.name] := CreateRef(native);
   end;
+end;
+
+function TLisp.Eval(input : string) : DataRef;
+begin
+  Result := Eval(input, FGlobal);
 end;
 
 initialization

@@ -31,7 +31,7 @@ begin
         if input <> '' then
         begin
           try
-            res := Lisp.Eval(input, Lisp.GlobalContext);
+            res := Lisp.Eval(input);
             if not (res() is TNothing) then
             begin
               WriteLn(res.ToString);

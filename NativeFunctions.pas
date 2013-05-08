@@ -54,7 +54,7 @@ end;
 
 constructor TNativeFunction.Create(name : string; func : ProcNativeFunction);
 begin
-  inherited Create();
+  inherited Create(name);
   FName := name;
   FFunction := func;
   NativeFunctionList.Add(self);
@@ -724,7 +724,9 @@ begin
   Result := CreateRef(TNothing.Create);
 end;
 
-// (uses <path>)
+// (use <path>)              - import into current context without prefix
+// (use <path> :ns)          - import with prefix "<ModuleName>/"
+// (use <path> :as <prefix>) - import with prefix "<prefix>/"
 function _use(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   path : string;
@@ -763,7 +765,7 @@ end;
 
 function __module_get(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  c : TScopedContext;
+  c : TDualLookupContext;
   module : TModule;
   moduleName : string;
   moduleManager : TModuleManager;
@@ -771,7 +773,7 @@ begin
   moduleName := (runtime.Eval(args[1], context)() as TSymbol).Value;
   moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
   module := moduleManager.Modules[moduleName];
-  c := TScopedContext.Create(context, module.context);
+  c := TDualLookupContext.Create(context, module.context);
   Result := runtime.Eval(args[2], c);
   c.Free;
 end;
@@ -793,6 +795,8 @@ begin
 end;
 
 /// (anonymous-function expr)
+/// creates an anonymous function that can make use of
+/// implicit arguments in the form of "_\d?".
 function __anonymous_function(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   i : Integer;
@@ -827,12 +831,13 @@ begin
   end;
   implicitArgs.Executable := False;
 
-  // generate the code (fn [p0 p1 ... pN] expr*)
+  // generate the code (fn [p0 p1 ... pN] expr)
   code := TList.Create();
   code.Add(CreateRef(TSymbol.Create('fn'))); // (fn
-  code.Add(CreateRef(implicitArgs));        // (fn [...]
-  code.Add(CreateRef(expr));                        // function body
+  code.Add(CreateRef(implicitArgs));         // (fn <args>
+  code.Add(CreateRef(expr));                 // (fn <args> <expr>)
 
+  // evaluate the code
   Result := runtime.Eval(CreateRef(code), context);
   symbols.Free;
 end;

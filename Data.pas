@@ -232,24 +232,33 @@ type
 
       function GetDelphiObject<T : class>(name : string) : T;
 
-      procedure Import(context : TContext; prefix : string);
+      procedure Import(context : TContext; prefix : string); virtual;
 
       procedure Remove(name : string); virtual;
   end;
 
-  TScopedContext = class(TContext)
+  /// <summary>
+  /// Dual context that uses an external primary and secondary context for
+  /// looking up symbols. This context is read-only.
+  /// </summary>
+  TDualLookupContext = class(TContext)
     protected
-      FScope : TContext;
-      FContext : TContext;
+      FSecondary : TContext;
+      FPrimary : TContext;
+
+      procedure SetSymbol(name : string; Data : Ref<TData>); override;
 
     public
-      constructor Create(context : TContext; scope : TContext);
+      constructor Create(primary : TContext; secondary : TContext);
 
       function GetSymbol(name : string) : Ref<TData>; override;
       function IsDefined(name : string) : Boolean; override;
+
+      procedure Import(context : TContext; prefix : string); override;
+      procedure Remove(name : string); override;
   end;
 
-  TFunction = class abstract(TData)
+  TFunction = class abstract(TAtom)
     protected
       FContext : TContext;
 
@@ -831,24 +840,39 @@ end;
 
 { TScopedContext }
 
-constructor TScopedContext.Create(context, scope : TContext);
+constructor TDualLookupContext.Create(primary, secondary : TContext);
 begin
   inherited Create(Nil);
-  FScope := scope;
-  FContext := context;
+  FSecondary := secondary;
+  FPrimary := primary;
 end;
 
-function TScopedContext.GetSymbol(name : string) : Ref<TData>;
+function TDualLookupContext.GetSymbol(name : string) : Ref<TData>;
 begin
-  if FContext.IsDefined(name) then
-      Result := FContext[name]
+  if FPrimary.IsDefined(name) then
+      Result := FPrimary[name]
   else
-      Result := FScope[name];
+      Result := FSecondary[name];
 end;
 
-function TScopedContext.IsDefined(name : string) : Boolean;
+procedure TDualLookupContext.Import(context: TContext; prefix: string);
 begin
-  Result := FContext.IsDefined(name) or FScope.IsDefined(name);
+  raise Exception.Create('read-only');
+end;
+
+function TDualLookupContext.IsDefined(name : string) : Boolean;
+begin
+  Result := FPrimary.IsDefined(name) or FSecondary.IsDefined(name);
+end;
+
+procedure TDualLookupContext.Remove(name: string);
+begin
+  raise Exception.Create('read-only');
+end;
+
+procedure TDualLookupContext.SetSymbol(name: string; Data: Ref<TData>);
+begin
+  raise Exception.Create('read-only');
 end;
 
 initialization
