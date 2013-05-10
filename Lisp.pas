@@ -30,24 +30,24 @@ type
       function GetGlobalContext : TContext; override;
 
     public
-      ///<summary>Creates new DLisp interpreter</summary>
+      /// <summary>Creates new DLisp interpreter</summary>
       constructor Create();
       destructor Destroy(); override;
 
-      ///<summary>Parses a string and returns equivalent DLisp code.</summary>
-      ///<exception cref="Exception">When something goes wrong</exception>
+      /// <summary>Parses a string and returns equivalent DLisp code.</summary>
+      /// <exception cref="Exception">When something goes wrong</exception>
       function Read(input : string) : Ref<TData>; override;
 
-      ///<summary>Evaluates DLisp code in the given context.</summary>
+      /// <summary>Evaluates DLisp code in the given context.</summary>
       function Eval(code : DataRef; context : TContext) : DataRef; override;
 
-      ///<summary>Parses and evaluates the input string in given context.</summary>
+      /// <summary>Parses and evaluates the input string in given context.</summary>
       function Eval(input : string; context : TContext) : DataRef; overload; override;
 
-      ///<summary>Parses and evaluates the input string in the global context.</summary>
+      /// <summary>Parses and evaluates the input string in the global context.</summary>
       function Eval(input : string) : DataRef; overload;
 
-      ///<summary>Register a native function in global context.</summary>
+      /// <summary>Register a native function in global context.</summary>
       procedure RegisterFunction(fn : TFunction);
 
   end;
@@ -195,7 +195,7 @@ var
   item : Ref<TData>;
   text : string;
   charsTrimmed : Integer;
-  anonymousFunction : Boolean;
+  anonymousFunction, dict : Boolean;
 
   function IsWhitespace(c : Char) : Boolean;
   begin
@@ -286,7 +286,9 @@ begin
   if anonymousFunction then
       list.Add(CreateRef(TSymbol.Create('anonymous-function')))
   else if input[1] = '[' then
-      list.Add(CreateRef(TSymbol.Create('list')));
+      list.Add(CreateRef(TSymbol.Create('list')))
+  else if input[1] = '{' then
+      list.Add(CreateRef(TSymbol.Create('dict')));
 
   while i <= Length(input) do
   begin
