@@ -5,7 +5,6 @@ interface
 uses
   System.SysUtils,
   Math,
-  Memory,
   System.Generics.Collections,
   System.Generics.Defaults,
   Data,
@@ -80,6 +79,7 @@ type
       function Get(key : DataRef) : DataRef;
 
       function ToString : string; override;
+      function Copy() : TData; override;
   end;
 
 function CreateListRef(Data : TList) : DataRef;
@@ -255,6 +255,20 @@ end;
 function TDictionary.Contains(key : DataRef) : Boolean;
 begin
   Result := FContent.ContainsKey(key);
+end;
+
+function TDictionary.Copy: TData;
+var
+  dict : TDictionary;
+  pair: TPair<DataRef,DataRef>;
+begin
+  dict := TDictionary.Create();
+  for pair in FContent do
+  begin
+    dict.Add(pair.Key, pair.Value);
+  end;
+
+  Result := dict;
 end;
 
 function TDictionary.Get(key : DataRef) : DataRef;

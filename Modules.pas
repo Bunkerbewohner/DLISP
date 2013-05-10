@@ -3,7 +3,7 @@ unit Modules;
 interface
 
 uses
-  Memory, Data, Common, System.IOUtils,
+  Data, Common, System.IOUtils,
   System.Generics.Collections;
 
 type

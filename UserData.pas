@@ -4,8 +4,7 @@ interface
 
 uses
   Data,
-  Collections,
-  Memory;
+  Collections;
 
 type
   TUserFunction = class(TFunction)

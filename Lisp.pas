@@ -7,7 +7,6 @@ uses
   NativeFunctions,
   Classes,
   SysUtils,
-  Memory,
   System.Generics.Collections,
   System.RegularExpressions,
   Data,
@@ -135,6 +134,13 @@ begin
 
       if not(evaluated[0]() is TUserFunction) then
       begin
+        if (symbol <> nil) and (symbol.Value.StartsWith(':')) then
+        begin
+          Result := _get(Self, context, TRef<TList>.Create(TList.Create(
+            [CreateRef(TSymbol.Create('get')), evaluated[1], evaluated[0]])));
+          Exit;
+        end;
+
         raise Exception.Create('Unkown function "' + evaluated[0]().Value + '"');
       end;
 
@@ -195,7 +201,7 @@ var
   item : Ref<TData>;
   text : string;
   charsTrimmed : Integer;
-  anonymousFunction, dict : Boolean;
+  anonymousFunction : Boolean;
 
   function IsWhitespace(c : Char) : Boolean;
   begin

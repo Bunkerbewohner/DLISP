@@ -5,7 +5,6 @@ interface
 uses
   Classes,
   Data,
-  Memory,
   Common,
   System.Generics.Collections,
   SysUtils,
@@ -46,6 +45,8 @@ type
     public
       function Apply(runtime : TRuntime; context : TContext; args : Ref<TList>) : DataRef; override;
   end;
+
+  function _get(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 
 implementation
 
@@ -883,7 +884,9 @@ begin
     if dict.Contains(args[2]) then Result := dict.Get(args[2])
     else if args().Size = 4 then Result := args[3] // default value
     else Result := TNothing.Instance;
-  end;
+  end
+  else
+    raise Exception.Create('Unsupported operand');
 end;
 
 initialization
