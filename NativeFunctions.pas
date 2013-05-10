@@ -14,7 +14,8 @@ uses
   RegularExpressions,
   Collections,
   UserData,
-  Interfaces;
+  Interfaces,
+  Rtti;
 
 var
   NativeFunctionList : TList<TFunction>;
@@ -74,7 +75,6 @@ function TEvaluatingNativeFunction.Apply(runtime : TRuntime; context : TContext;
   args : Ref<TList>) : DataRef;
 var
   evald : TList;
-  a, rf : DataRef;
   i : Integer;
 begin
   evald := TList.Create();
@@ -116,7 +116,6 @@ var
   i : Integer;
   symbol : TSymbol;
   exp : DataRef;
-  temp : TData;
 begin
   bindings := args[1]() as TList;
   subcontext := TContext.Create(context);
@@ -148,7 +147,6 @@ function __defn(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref
 var
   symbol : TSymbol;
   funcArgs : TList;
-  d : DataRef;
   i : Integer;
 begin
   // symbol under which to define the function
@@ -232,7 +230,8 @@ var
 begin
   data := args[1]();
 
-  if data is TList then count := (data as TList).Size;
+  if data is TList then count := (data as TList).Size
+  else if Supports(data, ICountable, c) then count := c.Count;
 
   Result := CreateRef(TInteger.Create(count));
 end;
@@ -240,7 +239,6 @@ end;
 function _list(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   list : TList;
-  a, b : DataRef;
   i : Integer;
 begin
   list := TList.Create();
@@ -311,7 +309,6 @@ function _str(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<T
 var
   res : string;
   i : Integer;
-  Ref : DataRef;
 begin
   res := '';
 
@@ -330,7 +327,6 @@ end;
 
 function _type(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
-  name : string;
   val : Ref<TData>;
 begin
   val := args[1];
@@ -339,11 +335,9 @@ end;
 
 function __apply(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
-  params, newargs, temp : TList;
+  params, newargs : TList;
   i : Integer;
 begin
-  temp := args();
-
   newargs := TList.Create();
   newargs.Add(runtime.Eval(args[1], context)); // the function to be applied
 
@@ -361,11 +355,9 @@ end;
 function _map(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
   maplist, col, newargs : TList;
-  mapping : DataRef;
   i : Integer;
   Fn : DataRef;
-  params : Ref<TList>;
-  Apply, params2 : DataRef;
+  Apply : DataRef;
 begin
   Apply := CreateRef(TSymbol.Create('apply'));
   maplist := TList.Create();
@@ -465,7 +457,6 @@ end;
 
 function __do(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  ops : TList;
   i : Integer;
 begin
   if args.Size = 0 then
@@ -506,22 +497,18 @@ end;
 
 function _filter(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  Fn : TFunction;
   fnRef : DataRef;
-  col, filtered, l : TList;
-  item, params : DataRef;
-  b : Boolean;
+  col, filtered : TList;
+  params : DataRef;
   bRef : DataRef;
   i : Integer;
 begin
   fnRef := args[1];
-  Fn := fnRef() as TFunction;
   col := args[2]() as TList;
   filtered := TList.Create();
   for i := 0 to col.Size - 1 do
   begin
     params := CreateRef(TList.Create([fnRef, col[i]]));
-    l := params() as TList;
     bRef := runtime.Eval(params, context);
     if (bRef is TBoolean) and (bRef as TBoolean).BoolValue then
     begin
@@ -664,7 +651,6 @@ end;
 
 function _read(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
-  arg1 : DataRef;
   text : Data.TString;
 begin
   Assert(args.Size = 2);
@@ -682,10 +668,9 @@ function __foreach(runtime : TRuntime; context : TContext; args : ListRef) : Dat
 var
   c : TContext;
   s : TSymbol;
-  item, expr : DataRef;
+  expr : DataRef;
   list : TList;
   offset, i : Integer;
-  Int : TInteger;
 begin
   s := args[1]() as TSymbol;
   offset := 0;
@@ -790,7 +775,6 @@ end;
 function _in(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   list : TList;
-  item : DataRef;
   i : Integer;
 begin
   list := args[1]() as TList;
@@ -851,6 +835,57 @@ begin
   symbols.Free;
 end;
 
+function _create(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  qualifiedName : string;
+  constructorArgs : TList;
+  valueArray : array of TValue;
+  i: Integer;
+  obj : TDelphiObject;
+begin
+  Assert((args[1]() is TSymbol) or (args[1]() is TString)); // class name
+  Assert(args[2]() is TList); // constructor arguments
+
+  qualifiedName := args[1]().Value;
+  constructorArgs := (args[2]() as TList);
+
+  SetLength(valueArray, constructorArgs.Size);
+  for i := 0 to constructorArgs.Size - 1 do
+    valueArray[i] := constructorArgs[i]().ToTValue();
+
+  obj := TDelphiObject.CreateOwned(qualifiedName, valueArray);
+  Result := CreateRef(obj);
+end;
+
+function _dict(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  dict : TDictionary;
+  i: Integer;
+begin
+  dict := TDictionary.Create();
+  i := 1;
+  while i < args().Size - 1 do
+  begin
+    dict.Add(args[i], args[i+1]);
+    i := i + 2;
+  end;
+
+  Result := CreateRef(dict);
+end;
+
+function _get(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  dict : TDictionary;
+begin
+  if args[1]() is TDictionary then
+  begin
+    dict := args[1]() as TDictionary;
+    if dict.Contains(args[2]) then Result := dict.Get(args[2])
+    else if args().Size = 4 then Result := args[3] // default value
+    else Result := TNothing.Instance;
+  end;
+end;
+
 initialization
 
 NativeFunctionList := TList<TFunction>.Create();
@@ -881,6 +916,7 @@ TEvaluatingNativeFunction.Create('first', _first);
 TEvaluatingNativeFunction.Create('last', _last);
 TEvaluatingNativeFunction.Create('length', _length);
 TEvaluatingNativeFunction.Create('list', _list);
+TEvaluatingNativeFunction.Create('dict', _dict);
 TEvaluatingNativeFunction.Create('not=', _neq);
 TEvaluatingNativeFunction.Create('not', _not);
 TEvaluatingNativeFunction.Create('nth', _nth);
@@ -891,6 +927,7 @@ TEvaluatingNativeFunction.Create('nil?', _nil_);
 TEvaluatingNativeFunction.Create('load', _load);
 TEvaluatingNativeFunction.Create('use', _use);
 TEvaluatingNativeFunction.Create('in', _in);
+TEvaluatingNativeFunction.Create('get', _get);
 
 TEvaluatingNativeFunction.Create('+', _plus);
 TEvaluatingNativeFunction.Create('-', _minus);
@@ -902,6 +939,8 @@ TEvaluatingNativeFunction.Create('<', _less);
 TEvaluatingNativeFunction.Create('<=', _lessorequal);
 TEvaluatingNativeFunction.Create('>', _greater);
 TEvaluatingNativeFunction.Create('>=', _greaterorequal);
+
+TEvaluatingNativeFunction.Create('create', _create);
 
 finalization
 

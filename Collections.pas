@@ -7,23 +7,12 @@ uses
   Math,
   Memory,
   System.Generics.Collections,
+  System.Generics.Defaults,
   Data,
-  Interfaces;
+  Interfaces,
+  Rtti;
 
 type
-
-  TDictionary = class(TData)
-    protected
-      FContent : TDictionary<string, DataRef>;
-
-    public
-      constructor Create();
-      destructor Destroy(); override;
-
-      procedure Add(key : string; value : DataRef);
-
-      function ToString : string; override;
-  end;
 
   TList = class(TData, ICountable)
     protected
@@ -52,6 +41,7 @@ type
       function GetEnumerator : TEnumerator<DataRef>;
 
       function ToString : string; override;
+      function ToTValue() : TValue; override;
 
       function Count : Integer;
   end;
@@ -70,6 +60,27 @@ type
   end;
 
   ListRef = Ref<TList>;
+
+  DataComparer = class(TInterfacedObject, IEqualityComparer<DataRef>)
+    function Equals(const Left, Right : DataRef) : Boolean; reintroduce;
+    function GetHashCode(const Value : DataRef) : Integer; reintroduce;
+  end;
+
+  TDictionary = class(TData)
+    protected
+      FContent : TDictionary<DataRef, DataRef>;
+
+    public
+      constructor Create(); overload;
+      constructor Create(list : TList); overload;
+      destructor Destroy(); override;
+
+      function Contains(key : DataRef) : Boolean;
+      procedure Add(key : DataRef; Value : DataRef);
+      function Get(key : DataRef) : DataRef;
+
+      function ToString : string; override;
+  end;
 
 function CreateListRef(Data : TList) : DataRef;
 
@@ -119,7 +130,7 @@ begin
   Result := list;
 end;
 
-function TList.Count: Integer;
+function TList.Count : Integer;
 begin
   Result := Items.Count;
 end;
@@ -180,6 +191,18 @@ begin
   Result := Result + ')';
 end;
 
+function TList.ToTValue : TValue;
+var
+  list : TList<TValue>;
+  I : Integer;
+begin
+  list := TList<TValue>.Create();
+  for I := 0 to Self.Size - 1 do
+      list[I] := Items[I]().ToTValue();
+
+  Result := TValue.From(list);
+end;
+
 function TList.ValueEquals(b : TData) : Boolean;
 var
   other : TList;
@@ -197,14 +220,30 @@ end;
 
 { TDictionary }
 
-procedure TDictionary.Add(key: string; value: DataRef);
+procedure TDictionary.Add(key : DataRef; Value : DataRef);
 begin
-  FContent.AddOrSetValue(key, value);
+  FContent.AddOrSetValue(key, Value);
 end;
 
 constructor TDictionary.Create;
 begin
-  FContent := TDictionary<string, DataRef>.Create();
+  FContent := TDictionary<DataRef, DataRef>.Create(DataComparer.Create());
+end;
+
+constructor TDictionary.Create(list : TList);
+var
+  I : Integer;
+begin
+  Create();
+  Assert(list.Size = 2);
+  I := 0;
+
+  while I < list.Size do
+  begin
+    FContent.Add(list[I], list[I + 1]);
+    I := I + 2;
+  end;
+
 end;
 
 destructor TDictionary.Destroy;
@@ -213,9 +252,40 @@ begin
   inherited;
 end;
 
-function TDictionary.ToString: string;
+function TDictionary.Contains(key : DataRef) : Boolean;
 begin
+  Result := FContent.ContainsKey(key);
+end;
 
+function TDictionary.Get(key : DataRef) : DataRef;
+begin
+  Result := FContent[key];
+end;
+
+function TDictionary.ToString : string;
+var
+  I : Integer;
+  pair : TPair<DataRef, DataRef>;
+begin
+  Result := '{ ';
+  for pair in FContent do
+  begin
+    Result := Result + pair.key().ToString + ' ' + pair.Value().ToString + ', ';
+  end;
+
+  Result := Result + '}';
+end;
+
+{ DataComparer }
+
+function DataComparer.Equals(const Left, Right : DataRef) : Boolean;
+begin
+  Result := Left().ValueEquals(Right());
+end;
+
+function DataComparer.GetHashCode(const Value : DataRef) : Integer;
+begin
+  Result := Value().GetHashCode;
 end;
 
 end.

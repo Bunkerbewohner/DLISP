@@ -8,9 +8,11 @@ uses
   SysUtils,
   Memory,
   System.Generics.Collections,
+  System.Generics.Defaults,
   System.RegularExpressions,
   Math,
-  Interfaces;
+  Interfaces,
+  Rtti;
 
 var
   FormatSettings : TFormatSettings;
@@ -35,15 +37,26 @@ type
 
       procedure Release();
       function ToQualifiedString() : string;
+
+      function ToTValue() : TValue; virtual; abstract;
   end;
 
   TNothing = class(TData)
+    private
+      class var FInstance : TNothing;
+      class var FReference : Ref<TData>;
+
+      class function GetInstance() : TNothing; static;
+      class function GetReference() : Ref<TData>; static;
+
     public
       constructor Create();
 
       function Copy() : TData; override;
 
       function ToString : string; override;
+
+      class property Instance : Ref<TData> read GetReference;
   end;
 
   TAtom = class(TData)
@@ -56,21 +69,28 @@ type
 
   DataRef = Ref<TData>;
 
-  TSymbol = class(TAtom)
+  TValueType = class(TAtom)
+    public
+      function GetHashCode : Integer; override;
+  end;
+
+  TSymbol = class(TValueType)
     public
 
       function Copy() : TData; override;
       class function Match(v : string) : Boolean;
 
+      function ToTValue() : TValue; override;
   end;
 
-  TString = class(TAtom)
+  TString = class(TValueType)
     public
       function Copy() : TData; override;
       function ToString : string; override;
+      function ToTValue() : TValue; override;
   end;
 
-  TBoolean = class(TAtom)
+  TBoolean = class(TValueType)
     public
       BoolValue : Boolean;
 
@@ -81,9 +101,10 @@ type
       class function Match(v : string) : Boolean;
 
       function ToString() : string; override;
+      function ToTValue() : TValue; override;
   end;
 
-  TNumber = class(TAtom)
+  TNumber = class(TValueType)
     public
       function ToInteger() : Integer; virtual; abstract;
       function ToSingle() : Single; virtual; abstract;
@@ -116,6 +137,7 @@ type
       function Compare(b : TNumber) : TNumber; override;
 
       class function Match(v : string) : Boolean;
+      function ToTValue() : TValue; override;
   end;
 
   TFloat = class(TNumber)
@@ -138,6 +160,7 @@ type
       function Compare(b : TNumber) : TNumber; override;
 
       class function Match(v : string) : Boolean;
+      function ToTValue() : TValue; override;
   end;
 
   TAbstractObject = class abstract(TAtom)
@@ -149,17 +172,33 @@ type
   /// </summary>
   TDelphiObject = class(TAbstractObject)
     protected
+      FValue : TValue;
       FObject : TObject;
       FOwned : Boolean;
+      FContext : TRttiContext;
+      FType : TRttiInstanceType;
+
+      procedure Init();
 
     public
       /// <summary>Creates a Lisp object that owns the contained delphi object
       /// </summary>
-      constructor CreateOwned(obj : TObject);
+      constructor CreateOwned(obj : TObject); overload;
+
+      /// <summary>Creates a new Lisp object wrapping a new instance of the type
+      /// denoted by the qualified name. Ownership is taken for that instance.</summary>
+      constructor CreateOwned(qualifiedName : string; const args : array of TValue); overload;
+
+      /// <summary>Creates a lisp object wrapping obj but not taking ownership</summary>
       constructor Create(obj : TObject);
+
       destructor Destroy(); override;
 
       property Content : TObject read FObject;
+
+      function ToTValue() : TValue; override;
+
+      function ToString() : string; override;
 
   end;
 
@@ -419,6 +458,11 @@ begin
   Result := IntValue;
 end;
 
+function TInteger.ToTValue: TValue;
+begin
+  Result := TValue.From(Self.IntValue);
+end;
+
 { TSingle }
 
 constructor TFloat.Create(v : string);
@@ -507,6 +551,11 @@ begin
   Result := FloatValue;
 end;
 
+function TFloat.ToTValue: TValue;
+begin
+  Result := TValue.From(Self.FloatValue);
+end;
+
 { TSymbol }
 
 function TSymbol.Copy : TData;
@@ -517,6 +566,11 @@ end;
 class function TSymbol.Match(v : string) : Boolean;
 begin
   Result := TRegEx.IsMatch(v, '^[\D][\S]*$');
+end;
+
+function TSymbol.ToTValue : TValue;
+begin
+  Result := TValue.From(Self.Value);
 end;
 
 { TBoolean }
@@ -550,6 +604,11 @@ function TBoolean.ToString : string;
 begin
   if BoolValue then Result := 'True'
   else Result := 'False'
+end;
+
+function TBoolean.ToTValue: TValue;
+begin
+  Result := TValue.From(Self.BoolValue);
 end;
 
 { TData }
@@ -591,6 +650,22 @@ begin
   Value := '';
 end;
 
+class function TNothing.GetInstance: TNothing;
+begin
+  if FInstance = nil then
+    FInstance := TNothing.Create();
+
+  Result := FInstance;
+end;
+
+class function TNothing.GetReference: Ref<TData>;
+begin
+  if FReference = Nil then
+    FReference := CreateRef(GetInstance());
+
+  Result := FReference;
+end;
+
 function TNothing.ToString : string;
 begin
   Result := 'TNothing';
@@ -608,25 +683,66 @@ begin
   Result := '"' + Value + '"';
 end;
 
+function TString.ToTValue: TValue;
+begin
+  Result := TValue.From(Value);
+end;
+
 { TObject }
 
 constructor TDelphiObject.Create(obj : TObject);
 begin
   FObject := obj;
   FOwned := False;
+  FValue := TValue.From(FObject);
+  Init;
+  FType := FContext.GetType(obj.ClassInfo) as TRttiInstanceType;
+end;
+
+constructor TDelphiObject.CreateOwned(qualifiedName : string; const args : array of TValue);
+begin
+  Init;
+  FType := FContext.FindType(qualifiedName) as TRttiInstanceType;
+
+  FValue := FType.GetMethod('Create').Invoke(FType.MetaclassType, args);
+  if FValue.IsObject then
+      FObject := FValue.AsObject
+  else
+      FObject := nil
 end;
 
 constructor TDelphiObject.CreateOwned(obj : TObject);
 begin
   FObject := obj;
+  FValue := TValue.From(FObject);
   FOwned := True;
+  Init;
+  FType := FContext.GetType(obj.ClassInfo) as TRttiInstanceType;
 end;
 
 destructor TDelphiObject.Destroy;
 begin
-  if FOwned then
+  if (FObject <> nil) and FOwned then
       FObject.Free;
   inherited;
+end;
+
+procedure TDelphiObject.Init;
+begin
+  FContext := TRttiContext.Create();
+end;
+
+function TDelphiObject.ToString: string;
+begin
+  if FObject <> Nil then
+    Result := FType.QualifiedName + '(' + FObject.ToString + ')'
+  else
+    Result := FType.QualifiedName + '(' + FValue.ToString + ')';
+end;
+
+function TDelphiObject.ToTValue: TValue;
+begin
+  Result := FValue;
 end;
 
 { TScopedContext }
@@ -666,8 +782,20 @@ begin
   raise Exception.Create('read-only');
 end;
 
+{ TValueType }
+
+function TValueType.GetHashCode: Integer;
+begin
+  Result := Self.Value.GetHashCode;
+end;
+
 initialization
 
+TNothing.FInstance := TNothing.Create();
+TNothing.FReference := CreateRef(TNothing.FInstance);
+
 FormatSettings := TFormatSettings.Create('en_US');
+
+finalization
 
 end.
