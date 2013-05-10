@@ -26,6 +26,14 @@ type
       function ToString : string; override;
   end;
 
+
+  /// <summary>
+  /// An abstract object implementation for DLISP.
+  /// </summary>
+  TLispObject = class(TAbstractObject)
+
+  end;
+
 implementation
 
 { TFunction }

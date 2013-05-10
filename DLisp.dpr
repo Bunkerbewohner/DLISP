@@ -12,7 +12,10 @@ uses
   Data in 'Data.pas',
   NativeFunctions in 'NativeFunctions.pas',
   Common in 'Common.pas',
-  Modules in 'Modules.pas';
+  Modules in 'Modules.pas',
+  Collections in 'Collections.pas',
+  UserData in 'UserData.pas',
+  Interfaces in 'Interfaces.pas';
 
 var
   input : string;

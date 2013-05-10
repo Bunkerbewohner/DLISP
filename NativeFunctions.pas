@@ -13,7 +13,8 @@ uses
   Modules,
   RegularExpressions,
   Collections,
-  UserData;
+  UserData,
+  Interfaces;
 
 var
   NativeFunctionList : TList<TFunction>;
@@ -224,10 +225,16 @@ end;
 
 function _length(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
+  data : TData;
   list : TList;
+  c : ICountable;
+  count : Integer;
 begin
-  list := args[1]() as TList;
-  Result := CreateRef(TInteger.Create(list.Size));
+  data := args[1]();
+
+  if data is TList then count := (data as TList).Size;
+
+  Result := CreateRef(TInteger.Create(count));
 end;
 
 function _list(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;

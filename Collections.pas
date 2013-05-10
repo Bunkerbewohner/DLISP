@@ -7,7 +7,8 @@ uses
   Math,
   Memory,
   System.Generics.Collections,
-  Data;
+  Data,
+  Interfaces;
 
 type
 
@@ -18,9 +19,13 @@ type
     public
       constructor Create();
       destructor Destroy(); override;
+
+      procedure Add(key : string; value : DataRef);
+
+      function ToString : string; override;
   end;
 
-  TList = class(TData)
+  TList = class(TData, ICountable)
     protected
       Items : TList<DataRef>;
 
@@ -47,6 +52,8 @@ type
       function GetEnumerator : TEnumerator<DataRef>;
 
       function ToString : string; override;
+
+      function Count : Integer;
   end;
 
   TLispListEnumerator = class(TEnumerator<DataRef>)
@@ -63,6 +70,7 @@ type
   end;
 
   ListRef = Ref<TList>;
+
 function CreateListRef(Data : TList) : DataRef;
 
 implementation
@@ -91,7 +99,6 @@ begin
   Result := FIndex < FList.Size;
 end;
 
-
 { TParseList }
 
 procedure TList.Add(item : Ref<TData>);
@@ -110,6 +117,11 @@ begin
     list.Add(CreateRef(item().Copy()));
   end;
   Result := list;
+end;
+
+function TList.Count: Integer;
+begin
+  Result := Items.Count;
 end;
 
 constructor TList.Create(Items : array of DataRef);
@@ -174,7 +186,7 @@ var
   I : Integer;
 begin
   other := b as TList;
-  Result := True;
+  Result := true;
 
   for I := 0 to Min(Size - 1, other.Size - 1) do
   begin
@@ -185,15 +197,25 @@ end;
 
 { TDictionary }
 
+procedure TDictionary.Add(key: string; value: DataRef);
+begin
+  FContent.AddOrSetValue(key, value);
+end;
+
 constructor TDictionary.Create;
 begin
-  FContent := TDictionary<string,DataRef>.Create();
+  FContent := TDictionary<string, DataRef>.Create();
 end;
 
 destructor TDictionary.Destroy;
 begin
   FContent.Free;
   inherited;
+end;
+
+function TDictionary.ToString: string;
+begin
+
 end;
 
 end.

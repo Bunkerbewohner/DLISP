@@ -9,17 +9,19 @@ uses
   Memory,
   System.Generics.Collections,
   System.RegularExpressions,
-  Math;
+  Math,
+  Interfaces;
 
 var
   FormatSettings : TFormatSettings;
 
 type
 
-  TData = class abstract(TInterfacedObject)
-    private
-      class var FInstances : TList<TData>;
+  ISomething = interface(IInterface)
+    function ToQualifiedString() : string;
+  end;
 
+  TData = class abstract(TInterfacedObject, ISomething)
     public
       Value : string;
 
@@ -162,13 +164,6 @@ type
   end;
 
   /// <summary>
-  /// An abstract object implementation for DLISP.
-  /// </summary>
-  TLispObject = class(TAbstractObject)
-
-  end;
-
-  /// <summary>
   /// Hierarchical program execution context. Contains a symbol reference table
   /// and an optional reference to a parent context. Reads will search the tree
   /// upwards. Writes always only apply the current context.
@@ -182,31 +177,31 @@ type
       procedure SetSymbol(name : string; Data : Ref<TData>); virtual;
 
     public
-      ///<summary>Creates a new context optionally chained to given parent context.</summary>
+      /// <summary>Creates a new context optionally chained to given parent context.</summary>
       constructor Create(parent : TContext);
       destructor Destroy(); override;
 
-      ///<summary>Symbols defined in this context. Can be used for reading
-      ///symbols in this and parent contexts, and writing into this context.
-      ///</summary>
+      /// <summary>Symbols defined in this context. Can be used for reading
+      /// symbols in this and parent contexts, and writing into this context.
+      /// </summary>
       property Symbols[name : string] : Ref<TData>
         read GetSymbol write SetSymbol; default;
 
-      property Parent : TContext read FParent;
+      property parent : TContext read FParent;
 
-      ///<summary>Return true if the symbol is defined in this context or
-      ///in one of its ancestors.</summary>
+      /// <summary>Return true if the symbol is defined in this context or
+      /// in one of its ancestors.</summary>
       function IsDefined(name : string) : Boolean; virtual;
 
-      ///<summary>Looks up a TDelphiObject wrapper and returns the contained
-      ///native delphi object.</summary>
+      /// <summary>Looks up a TDelphiObject wrapper and returns the contained
+      /// native delphi object.</summary>
       function GetDelphiObject<T : class>(name : string) : T;
 
-      ///<summary>Imports all symbols from another context into this context.
-      ///All symbol names will be prefixed with <prefix>.</summary>
+      /// <summary>Imports all symbols from another context into this context.
+      /// All symbol names will be prefixed with <prefix>.</summary>
       procedure Import(context : TContext; prefix : string); virtual;
 
-      ///<summary>Removes a symbol reference from this context.</summary>
+      /// <summary>Removes a symbol reference from this context.</summary>
       procedure Remove(name : string); virtual;
   end;
 
@@ -231,7 +226,7 @@ type
       procedure Remove(name : string); override;
   end;
 
-  ///<summary>An abstract function</summary>
+  /// <summary>An abstract function</summary>
   TFunction = class abstract(TAtom)
     protected
       FContext : TContext;
@@ -302,7 +297,7 @@ begin
   end;
 end;
 
-procedure TContext.Import(context: TContext; prefix: string);
+procedure TContext.Import(context : TContext; prefix : string);
 var
   symbol : string;
 begin
@@ -638,7 +633,7 @@ end;
 
 constructor TDualLookupContext.Create(primary, secondary : TContext);
 begin
-  inherited Create(Nil);
+  inherited Create(nil);
   FSecondary := secondary;
   FPrimary := primary;
 end;
@@ -651,7 +646,7 @@ begin
       Result := FSecondary[name];
 end;
 
-procedure TDualLookupContext.Import(context: TContext; prefix: string);
+procedure TDualLookupContext.Import(context : TContext; prefix : string);
 begin
   raise Exception.Create('read-only');
 end;
@@ -661,12 +656,12 @@ begin
   Result := FPrimary.IsDefined(name) or FSecondary.IsDefined(name);
 end;
 
-procedure TDualLookupContext.Remove(name: string);
+procedure TDualLookupContext.Remove(name : string);
 begin
   raise Exception.Create('read-only');
 end;
 
-procedure TDualLookupContext.SetSymbol(name: string; Data: Ref<TData>);
+procedure TDualLookupContext.SetSymbol(name : string; Data : Ref<TData>);
 begin
   raise Exception.Create('read-only');
 end;
