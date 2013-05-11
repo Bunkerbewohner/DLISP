@@ -25,7 +25,6 @@ type
       function ToString : string; override;
   end;
 
-
   /// <summary>
   /// An abstract object implementation for DLISP.
   /// </summary>
@@ -63,7 +62,9 @@ begin
   list := code[1]() as TList;
   Args := TList.Create();
   for I := 1 to list.Size - 1 do
-      Args.Add(list[I]);
+  begin
+    Args.Add(list[I]);
+  end;
 
   FArgs := TRef<TList>.Create(Args);
 end;

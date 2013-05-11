@@ -739,7 +739,7 @@ begin
   else
       path := (args[1]() as TString).Value;
 
-  moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
+  moduleManager := context.GetObject<TModuleManager>('*module-manager*');
   module := moduleManager.Load(path);
 
   // import the symbols prefixed into the current context
@@ -768,7 +768,7 @@ var
   moduleManager : TModuleManager;
 begin
   moduleName := (runtime.Eval(args[1], context)() as TSymbol).Value;
-  moduleManager := context.GetDelphiObject<TModuleManager>('*module-manager*');
+  moduleManager := context.GetObject<TModuleManager>('*module-manager*');
   module := moduleManager.Modules[moduleName];
   c := TDualLookupContext.Create(context, module.context);
   Result := runtime.Eval(args[2], c);

@@ -258,7 +258,17 @@ type
 
       /// <summary>Looks up a TDelphiObject wrapper and returns the contained
       /// native delphi object.</summary>
-      function GetDelphiObject<T : class>(name : string) : T;
+      function GetObject<T : class>(name : string) : T;
+      function GetInteger(name : string) : Integer;
+      function GetSingle(name : string) : Single;
+      function GetBoolean(name : string) : Boolean;
+      function GetString(name : string) : string;
+
+      procedure Define(name : string; obj : TObject); overload;
+      procedure Define(name : string; num : Integer); overload;
+      procedure Define(name : string; num : Single); overload;
+      procedure Define(name : string; bool : Boolean); overload;
+      procedure Define(name : string; str : String); overload;
 
       /// <summary>Imports all symbols from another context into this context.
       /// All symbol names will be prefixed with <prefix>.</summary>
@@ -369,15 +379,60 @@ begin
   FSymbols := TDictionary<string, DataRef>.Create();
 end;
 
+procedure TContext.Define(name: string; num: Integer);
+begin
+  SetSymbol(name, CreateRef(TInteger.Create(num)));
+end;
+
+procedure TContext.Define(name: string; obj: TObject);
+begin
+  SetSymbol(name, CreateRef(TDelphiObject.Create(obj)));
+end;
+
+procedure TContext.Define(name: string; num: Single);
+begin
+  SetSymbol(name, CreateRef(TFloat.Create(num)));
+end;
+
+procedure TContext.Define(name, str: String);
+begin
+  SetSymbol(name, CreateRef(TString.Create(str)));
+end;
+
+procedure TContext.Define(name: string; bool: Boolean);
+begin
+  SetSymbol(name, CreateRef(TBoolean.Create(bool)));
+end;
+
 destructor TContext.Destroy;
 begin
   inherited;
   FSymbols.Free;
 end;
 
-function TContext.GetDelphiObject<T>(name : string) : T;
+function TContext.GetBoolean(name: string): Boolean;
+begin
+  Result := (GetSymbol(name) as TBoolean).BoolValue;
+end;
+
+function TContext.GetInteger(name: string): Integer;
+begin
+  Result := (GetSymbol(name) as TInteger).IntValue;
+end;
+
+function TContext.GetObject<T>(name : string) : T;
 begin
   Result := (GetSymbol(name)() as TDelphiObject).Content as T;
+end;
+
+function TContext.GetSingle(name: string): Single;
+begin
+  Result := (GetSymbol(name) as TFloat).FloatValue;
+end;
+
+function TContext.GetString(name: string): String;
+begin
+  Result := (GetSymbol(name) as TString).Value;
 end;
 
 function TContext.GetSymbol(name : string) : Ref<TData>;
