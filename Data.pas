@@ -266,6 +266,8 @@ type
 
       /// <summary>Removes a symbol reference from this context.</summary>
       procedure Remove(name : string); virtual;
+
+      function ToString : string; override;
   end;
 
   /// <summary>
@@ -426,6 +428,18 @@ begin
   begin
     FSymbols.Add(name, DataRef(Data));
   end;
+end;
+
+function TContext.ToString: string;
+var
+  pair: TPair<string,DataRef>;
+begin
+  Result := 'TContext { ';
+  for pair in FSymbols do
+  begin
+    Result := Result + pair.Key + ' => ' + pair.Value().ToString + ', ';
+  end;
+  Result := Result + ' }';
 end;
 
 { TInteger }

@@ -46,7 +46,7 @@ type
       function Apply(runtime : TRuntime; context : TContext; args : Ref<TList>) : DataRef; override;
   end;
 
-  function _get(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+function _get(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 
 implementation
 
@@ -157,7 +157,9 @@ begin
   // symbol in the front; so just copy the rest into a new list
   funcArgs := TList.Create();
   for i := 1 to args.Size - 1 do
-      funcArgs.Add(args[i]);
+  begin
+    funcArgs.Add(args[i]);
+  end;
 
   // Create and save the function
   Result := CreateRef(TUserFunction.Create(TRef<TList>.Create(funcArgs), context));
@@ -224,15 +226,15 @@ end;
 
 function _length(runtime : TRuntime; context : TContext; args : Ref<TList>) : Ref<TData>;
 var
-  data : TData;
+  Data : TData;
   list : TList;
   c : ICountable;
   count : Integer;
 begin
-  data := args[1]();
+  Data := args[1]();
 
-  if data is TList then count := (data as TList).Size
-  else if Supports(data, ICountable, c) then count := c.Count;
+  if Data is TList then count := (Data as TList).Size
+  else if Supports(Data, ICountable, c) then count := c.count;
 
   Result := CreateRef(TInteger.Create(count));
 end;
@@ -841,7 +843,7 @@ var
   qualifiedName : string;
   constructorArgs : TList;
   valueArray : array of TValue;
-  i: Integer;
+  i : Integer;
   obj : TDelphiObject;
 begin
   Assert((args[1]() is TSymbol) or (args[1]() is TString)); // class name
@@ -852,7 +854,7 @@ begin
 
   SetLength(valueArray, constructorArgs.Size);
   for i := 0 to constructorArgs.Size - 1 do
-    valueArray[i] := constructorArgs[i]().ToTValue();
+      valueArray[i] := constructorArgs[i]().ToTValue();
 
   obj := TDelphiObject.CreateOwned(qualifiedName, valueArray);
   Result := CreateRef(obj);
@@ -861,13 +863,13 @@ end;
 function _dict(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
 var
   dict : TDictionary;
-  i: Integer;
+  i : Integer;
 begin
   dict := TDictionary.Create();
   i := 1;
   while i < args().Size - 1 do
   begin
-    dict.Add(args[i], args[i+1]);
+    dict.Add(args[i], args[i + 1]);
     i := i + 2;
   end;
 
@@ -882,11 +884,11 @@ begin
   begin
     dict := args[1]() as TDictionary;
     if dict.Contains(args[2]) then Result := dict.Get(args[2])
-    else if args().Size = 4 then Result := args[3] // default value
+    else if args().Size = 4 then Result := args[3]// default value
     else Result := TNothing.Instance;
   end
   else
-    raise Exception.Create('Unsupported operand');
+      raise Exception.Create('Unsupported operand');
 end;
 
 initialization

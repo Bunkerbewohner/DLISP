@@ -89,6 +89,8 @@ var
   Data : TData;
   fnScope : TContext;
   className, dbg : string;
+  j: Integer;
+  captureList : TList;
 
 begin
   if code() is TSymbol then
@@ -152,11 +154,32 @@ begin
       // args[2:] = function body expressions
 
       // register arguments in context
-      for i := 1 to evaluated().Size - 1 do
+      for i := 0 to fn.Args().Size - 1 do
       begin
-        symbol := fn.Args()[i - 1]() as TSymbol;
-        Data := evaluated[i]();
-        fnScope[symbol.Value] := evaluated[i];
+        symbol := fn.Args()[i]() as TSymbol;
+
+        if symbol.Value <> '&' then
+        begin
+          fnScope[symbol.Value] := evaluated[i + 1];
+        end
+        else
+        begin
+          // following the & character, the next format argument symbol is
+          // assigned a list that captures all remaining parameter that were
+          // passed to the function
+          symbol := fn.Args()[i + 1]() as TSymbol;
+          captureList := TList.Create();
+          fnScope[symbol.Value] := CreateRef(captureList);
+
+          // add remaining arguments to capture list
+          for j := i + 1 to evaluated().Size - 1 do
+          begin
+            captureList.Add(evaluated[j]);
+          end;
+
+          dbg := fnScope.ToString;
+          break;
+        end;
       end;
 
       // execute the function code
@@ -166,10 +189,11 @@ begin
       end;
 
       // Clear the arguments from the context again
-      for i := 1 to evaluated.Size - 1 do
+      for i := 0 to fn.Args().Size - 1 do
       begin
-        symbol := fn.Args()[i - 1]() as TSymbol;
-        fnScope.Remove(symbol.Value);
+        symbol := fn.Args()[i]() as TSymbol;
+        if fnScope.IsDefined(symbol.Value) then
+          fnScope.Remove(symbol.Value);
       end;
 
       fnScope.Free;
