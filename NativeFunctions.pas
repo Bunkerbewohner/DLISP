@@ -364,7 +364,7 @@ var
 begin
   Apply := CreateRef(TSymbol.Create('apply'));
   maplist := TList.Create();
-  Fn := runtime.Eval(args[1], context);
+  Fn := args[1];
   col := args[2]() as TList;
 
   for i := 0 to col.Size - 1 do
@@ -376,6 +376,63 @@ begin
   end;
 
   Result := CreateRef(maplist);
+end;
+
+function _reduce(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
+var
+  fn : DataRef;
+  list, col : TList;
+  i: Integer;
+begin
+  Assert(args[1]() is TFunction);
+  fn := args[1];
+
+  // (reduce <fn> <col>)
+  if args().Size = 3 then
+  begin
+    col := args[2]() as TList;
+    if col.Size = 0 then
+    begin
+      list := TList.Create([fn], True);
+      Exit(runtime.Eval(CreateRef(list), context));
+    end
+    else if col.Size = 1 then
+    begin
+      Exit(col[0]);
+    end
+    else
+    begin
+      list := TList.Create([fn, col[0], col[1]]);
+      Result := runtime.Eval(CreateRef(list), context);
+
+      for i := 2 to col.Size - 1 do
+      begin
+        list := TList.Create([fn, Result, col[i]]);
+        Result := runtime.Eval(CreateRef(list), context);
+      end;
+    end;
+  end
+  // (reduce <fn> <init> <col>)
+  else if args().Size = 4 then
+  begin
+    col := args[3]() as TList;
+
+    if col.Size = 0 then Result := args[2]
+    else
+    begin
+      Result := args[2];
+
+      for i := 0 to col.Size - 1 do
+      begin
+        FreeAndNil(list);
+        list := TList.Create([fn, Result, col[i]]);
+        Result := runtime.Eval(CreateRef(list), context);
+      end;
+
+      FreeAndNil(list);
+    end;
+  end
+  else raise Exception.Create('invalid arity');
 end;
 
 function _plus(runtime : TRuntime; context : TContext; args : ListRef) : DataRef;
@@ -511,7 +568,7 @@ begin
   filtered := TList.Create();
   for i := 0 to col.Size - 1 do
   begin
-    params := CreateRef(TList.Create([fnRef, col[i]]));
+    params := CreateRef(TList.Create([fnRef, col[i]], true));
     bRef := runtime.Eval(params, context);
     if (bRef is TBoolean) and (bRef as TBoolean).BoolValue then
     begin
@@ -927,6 +984,7 @@ TEvaluatingNativeFunction.Create('not', _not);
 TEvaluatingNativeFunction.Create('nth', _nth);
 TEvaluatingNativeFunction.Create('rest', _rest);
 TEvaluatingNativeFunction.Create('map', _map);
+TEvaluatingNativeFunction.Create('reduce', _reduce);
 TEvaluatingNativeFunction.Create('filter', _filter);
 TEvaluatingNativeFunction.Create('nil?', _nil_);
 TEvaluatingNativeFunction.Create('load', _load);

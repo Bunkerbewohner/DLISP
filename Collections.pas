@@ -32,7 +32,7 @@ type
       function ValueEquals(b : TData) : Boolean; override;
 
       constructor Create(); overload;
-      constructor Create(Items : array of DataRef); overload;
+      constructor Create(Items : array of DataRef; executable : Boolean = True); overload;
       destructor Destroy(); override;
 
       function Copy() : TData; override;
@@ -135,12 +135,13 @@ begin
   Result := Items.Count;
 end;
 
-constructor TList.Create(Items : array of DataRef);
+constructor TList.Create(Items : array of DataRef; executable : Boolean);
 var
   I : Integer;
 begin
   inherited Create();
   Self.Items := TList<DataRef>.Create();
+  self.Executable := executable;
 
   for I := 0 to Length(Items) - 1 do
       Add(Items[I]);
