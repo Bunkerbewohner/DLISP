@@ -424,12 +424,9 @@ begin
 
       for i := 0 to col.Size - 1 do
       begin
-        FreeAndNil(list);
         list := TList.Create([fn, Result, col[i]]);
         Result := runtime.Eval(CreateRef(list), context);
       end;
-
-      FreeAndNil(list);
     end;
   end
   else raise Exception.Create('invalid arity');
